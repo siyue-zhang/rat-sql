@@ -122,6 +122,8 @@ dmypy.json
 .vscode/
 .vector_cache/
 third_party/stanford-corenlp-full-2018-10-05/
+data/
+third_party/
 
 ### Logs & Experiment dirs ###
 

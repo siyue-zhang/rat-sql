@@ -1,7 +1,10 @@
-FROM pytorch/pytorch:1.5-cuda10.1-cudnn7-devel
+FROM pytorch/pytorch:1.8.0-cuda11.1-cudnn8-devel
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8
+
+RUN rm /etc/apt/sources.list.d/cuda.list
+RUN rm /etc/apt/sources.list.d/nvidia-ml.list
 
 RUN mkdir -p /usr/share/man/man1 && \
     apt-get update && apt-get install -y \
@@ -22,7 +25,7 @@ RUN pip install --user -r requirements.txt --no-warn-script-location && \
     python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
 
 # Cache the pretrained BERT model
-RUN python -c "from transformers import BertModel; BertModel.from_pretrained('bert-large-uncased-whole-word-masking')"
+# RUN python -c "from transformers import BertModel; BertModel.from_pretrained('bert-large-uncased-whole-word-masking')"
 
 # Download & cache StanfordNLP
 RUN mkdir -p /app/third_party && \
