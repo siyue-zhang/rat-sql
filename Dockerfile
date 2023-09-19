@@ -22,8 +22,10 @@ COPY requirements.txt setup.py /app/
 WORKDIR /app
 RUN pip install --user -r requirements.txt --no-warn-script-location && \
     pip install --user entmax && \
-    python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')" \
-    pip install -U typing_extensions
+    python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+
+RUN pip install -U typing_extensions && \
+    pip install stanfordnlp
 
 # Cache the pretrained BERT model
 # RUN python -c "from transformers import BertModel; BertModel.from_pretrained('bert-large-uncased-whole-word-masking')"
