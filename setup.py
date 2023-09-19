@@ -25,7 +25,7 @@ setup(
         'records~=0.5.3',
         'stanford-corenlp~=3.9.2',
         'tabulate~=0.8.6',
-        # 'torch~=1.8.0',
+        'torch~=1.8.1',
         'torchtext~=0.3.1',
         'tqdm',
         'transformers~=3.5.0',

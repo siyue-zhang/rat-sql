@@ -1,14 +1,14 @@
 {
     logdir: "logdir/bert_run",
-    model_config: "configs/spider/nl2code-bert.jsonnet",
+    model_config: "configs/squall/nl2code-bert.jsonnet",
     model_config_args: {
-        data_path: 'data/spider/',
+        data_path: 'data/squall/',
         bs: 6,
         num_batch_accumulated: 4,
         bert_version: "bert-large-uncased-whole-word-masking",
         summarize_header: "avg",
         use_column_type: false,
-        max_steps: 1000,
+        max_steps: 81000,
         num_layers: 8,
         lr: 7.44e-4,
         bert_lr: 3e-6,

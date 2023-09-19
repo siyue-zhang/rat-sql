@@ -22,11 +22,10 @@ COPY requirements.txt setup.py /app/
 WORKDIR /app
 RUN pip install --user -r requirements.txt --no-warn-script-location && \
     pip install --user entmax && \
-    python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+    python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')" \
+    pip install -U typing_extensions
 
-RUN pip install torch==1.7.1
-
-# # Cache the pretrained BERT model
+# Cache the pretrained BERT model
 # RUN python -c "from transformers import BertModel; BertModel.from_pretrained('bert-large-uncased-whole-word-masking')"
 
 # Download & cache StanfordNLP
