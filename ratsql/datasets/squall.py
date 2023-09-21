@@ -1,4 +1,5 @@
 import json, re
+from tqdm import tqdm
 
 import networkx as nx
 import numpy as np
@@ -10,35 +11,29 @@ from ratsql.utils import registry
 # from third_party.squall.model.evaluator import Evaluator
 from datasets import load_dataset
 from ratsql.datasets.squall_lib.utils import normalize
+from third_party.spider.process_sql import *
+from third_party.spider.preprocess.parse_sql_one import Schema as Schema_spider
+import sys, os
+print(os.getcwd)
+sys.path.append("./third_party/spider/preprocess")
 
-# raw_datasets = load_dataset(data_args.dataset_name, data_args.subset_name)
+def preprocess_datasets(subset_name, save_dir, limit=None):
+    subset_name = str(subset_name)
+    raw_dataset = load_dataset("siyue/squall", subset_name)
+    for split in ["train", "validation", "test"]:
+        dataset = raw_dataset[split]
+        num_sample = len(dataset["nt"])
+        examples = {}
+        schema_dicts = {}
 
-
-@registry.register('dataset', 'squall')
-class SquallDataset(torch.utils.data.Dataset): 
-    def __init__(self, subset_name, split_name):
-        self.subset_name = subset_name
-        self.split_name = split_name
-        self.raw_dataset = load_dataset("siyue/squall", subset_name)[self.split_name]
-        self.examples = []
-        self.schema_dicts = {}
-
-        for example in self.raw_dataset:
-            tbl = example["tbl"]
-            # Only one table in SQUALL (without a real name)
+        for i in tqdm(range(num_sample)):
+            tbl = dataset["tbl"][i]
             db_id = tbl
-            if tbl not in self.schema_dicts:
-                tables = (spider.Table(
-                    id=0,
-                    name=[db_id],
-                    unsplit_name=db_id,
-                    orig_name=db_id,
-                ),)
-
+            if tbl not in schema_dicts:
                 table_json = f"/workspaces/rat-sql/data/squall/tables/json/{tbl}.json"
                 f = open(table_json)
                 table_json = json.load(f)
-                header = table_json["headers"]
+                header = table_json["headers"][2:]
                 header_clean = [normalize(h)  for h in header]
                 column_names = []
                 types = []
@@ -50,57 +45,126 @@ class SquallDataset(torch.utils.data.Dataset):
                         number_after_c = int(match.group(1))
                         col_name = re.sub(r'c(\d+)', '{}'.format(header_clean[number_after_c-1]), cc["col"])
                         column_names.append(col_name)
-                columns = tuple(
-                    spider.Column(
-                        id=i,
-                        table=tables[0],
-                        name=col_name.split(),
-                        unsplit_name=col_name,
-                        orig_name=orig_col_name,
-                        type=col_type,
-                    )
-                    for i, (col_name, orig_col_name, col_type) in enumerate(zip(
-                        column_names,
-                        column_names,
-                        types
-                    ))
+                types_rev = []
+                for t in types:
+                    if t in ["INTEGER", "LIST INTEGER", "REAL","LIST REAL"]:
+                        types_rev.append("real")
+                    else:
+                        types_rev.append("text")
+
+                schema_dicts[db_id] = {
+                    "tbl": tbl, 
+                    "header":header_clean,
+                    "columns":column_names,
+                    "column_types":types_rev}
+            
+            header = schema_dicts[db_id]["header"]
+            sql = dataset["sql"][i]
+            sql_rev = []
+            for token in sql["value"]:
+                match = re.search(r'c(\d+)', token)
+                if match:
+                    number_after_c = int(match.group(1))
+                    token_rev = re.sub(r'c(\d+)', '{}'.format(header[number_after_c-1]), token)
+                    sql_rev.append(token_rev)
+                elif token == 'w':
+                    sql_rev.append(tbl)
+                else:
+                    sql_rev.append(token)
+            sql_rev = ' '.join(sql_rev)
+            examples[db_id] = {
+                "nt": dataset["nt"][i],
+                "question_toks":dataset["nl"][i],
+                "sql": sql_rev,
+                "tables": [tbl],
+                "columns": schema_dicts[db_id]["columns"],
+                "column_types":schema_dicts[db_id]["column_types"],
+                "header": schema_dicts[db_id]["header"],
+                "tgt": dataset["tgt"][i]
+            }
+            if limit and i>limit:
+                break
+
+        with open(f"{save_dir}/{split}{subset_name}.json", "w") as file:
+            json.dump(examples, file)
+
+        print(f"Save squall {split} set!")
+
+    return
+
+@registry.register('dataset', 'squall')
+class SquallDataset(torch.utils.data.Dataset): 
+    def __init__(self, path, limit=None):
+        f = open(path)
+        data = json.load(f)
+        self.examples = []
+        for k in data:
+            # only 1 table in squall
+            example = data[k]
+            tbl = example["tables"][0]
+            tables = (spider.Table(
+                id=0,
+                name=[tbl],
+                unsplit_name=tbl,
+                orig_name=tbl,
+            ),)
+            column_names = example["columns"]
+            column_types = example["column_types"]
+            columns = tuple(
+                spider.Column(
+                    id=i,
+                    table=tables[0],
+                    name=col_name.split(),
+                    unsplit_name=col_name,
+                    orig_name=col_name,
+                    type=col_type,
                 )
+                for i, (col_name, col_type) in enumerate(zip(
+                    column_names,
+                    column_types
+                ))
+            )
+            # Link columns to tables
+            for column in columns:
+                if column.table:
+                    column.table.columns.append(column) 
+            # No primary keys
+            # No foreign keys
+            foreign_key_graph = nx.DiGraph()
+            # Final argument: don't keep the original schema
+            schema = spider.Schema(tbl, tables, columns, foreign_key_graph, None)
+            
+            print(example["sql"])
+            # sql = "SELECT name ,  country ,  age FROM singer ORDER BY age DESC"
+            sql = example["sql"]
+            table_spider = {'table_names_original':tbl}
+            table_spider['column_names_original'] = [[0, c] for c in column_names]
+            schema_spider = Schema_spider({tbl:column_names}, table_spider)
+            print({tbl:column_names},'\n')
+            print(table_spider)
+            sql_label = get_sql(schema_spider, sql)
+            print(sql_label)
+            assert 1==2
 
-                # Link columns to tables
-                for column in columns:
-                    if column.table:
-                        column.table.columns.append(column)
-                
-                # No primary keys
-                # No foreign keys
-                foreign_key_graph = nx.DiGraph()
-                # Final argument: don't keep the original schema
-                self.schema_dicts[db_id] = spider.Schema(db_id, tables, columns, foreign_key_graph, None)
-            break
+            item = spider.SpiderItem(
+                text=example["question_toks"],
+                code=sql_label,
+                schema=schema,
+                orig={
+                    'question': example["question_toks"],
+                },
+                orig_schema=None)
+            
+            self.examples.append(item)
 
-        print(self.schema_dicts)
-
-        # for path in paths:
-        #     for line in open(path):
-        #         entry = json.loads(line)
-        #         item = spider.SpiderItem(
-        #             text=entry['question'],
-        #             code=entry['sql'],
-        #             schema=self.schema_dicts[entry['table_id']],
-        #             orig={
-        #                 'question': entry['question'],
-        #             },
-        #             orig_schema=None)
-        #         self.examples.append(item)
-
-        #         if limit and len(self.examples) > limit:
-        #             return
+            if limit and len(self.examples) >= limit:
+                break
 
     def __len__(self):
-        return len(self.raw_dataset)
+        return len(self.examples)
 
     def __getitem__(self, idx):
-        return self.raw_dataset[idx]
+        return self.examples[idx]
 
     # class Metrics:
     #     def __init__(self, dataset):
@@ -137,11 +201,14 @@ class SquallDataset(torch.utils.data.Dataset):
     #         mean_exec_match = float(np.mean(self.exec_match))
     #         mean_lf_match = float(np.mean(self.lf_match))
 
-    #         return {
-    #             'per_item': [{'ex': ex, 'lf': lf} for ex, lf in zip(self.exec_match, self.lf_match)],
-    #             'total_scores': {'ex': mean_exec_match, 'lf': mean_lf_match},
-    #         }
+            # return {
+            #     'per_item': [{'ex': ex, 'lf': lf} for ex, lf in zip(self.exec_match, self.lf_match)],
+            #     'total_scores': {'ex': mean_exec_match, 'lf': mean_lf_match},
+            # }
 
 
 if __name__=="__main__":
-    a = SquallDataset(subset_name="1", split_name="train")
+    # preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall", limit=10)
+    # a = SquallDataset(path="/workspaces/rat-sql/data/squall/train1.json", limit=2)
+    print(tokenize("sh she_is"))
+    # print(a.__getitem__(0))

@@ -121,3 +121,11 @@ class WikiSqlDataset(torch.utils.data.Dataset):
                 'per_item': [{'ex': ex, 'lf': lf} for ex, lf in zip(self.exec_match, self.lf_match)],
                 'total_scores': {'ex': mean_exec_match, 'lf': mean_lf_match},
             }
+
+if __name__=="__main__":
+    a = WikiSqlDataset(
+        paths=['/workspaces/rat-sql/data/wikisql/train.jsonl'], 
+        tables_paths=['/workspaces/rat-sql/data/wikisql/train.tables.jsonl'], 
+        db_path=['/workspaces/rat-sql/data/wikisql/train.db'],
+        limit=100)
+    print(a.__getitem__(0))
