@@ -31,7 +31,8 @@
 			"ms-python.python", 
 			"ms-azuretools.vscode-docker"]
 		}
-	}
+	},
+	"mounts": ["source=/home/siyue/Projects/table_qa_analysis/data,target=/workspaces/rat-sql/data,type=bind,consistency=cached"]
 
 	// Uncomment the next line to run commands after the container is created.
 	// "postCreateCommand": "cat /etc/os-release",
