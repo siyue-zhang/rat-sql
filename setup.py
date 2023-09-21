@@ -31,7 +31,8 @@ setup(
         'transformers~=3.5.0',
         'scikit-learn',
         'protobuf~=3.20',
-        'datasets'
+        'datasets',
+        'sqlparse',
     ],
     entry_points={"console_scripts": ["ratsql=run:main"]},
 )

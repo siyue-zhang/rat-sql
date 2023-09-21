@@ -1,6 +1,11 @@
 import json, re
 from tqdm import tqdm
 
+import sys, os
+print(os.getcwd)
+sys.path.append("./third_party/spider/preprocess")
+sys.path.append("./third_party/wikisql/")
+
 import networkx as nx
 import numpy as np
 import torch
@@ -13,9 +18,6 @@ from datasets import load_dataset
 from ratsql.datasets.squall_lib.utils import normalize
 from third_party.spider.process_sql import *
 from third_party.spider.preprocess.parse_sql_one import Schema as Schema_spider
-import sys, os
-print(os.getcwd)
-sys.path.append("./third_party/spider/preprocess")
 
 def preprocess_datasets(subset_name, save_dir, limit=None):
     subset_name = str(subset_name)
