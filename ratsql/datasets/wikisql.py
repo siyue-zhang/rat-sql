@@ -4,6 +4,9 @@ import networkx as nx
 import numpy as np
 import torch
 
+import sys, os
+sys.path.append("./third_party/wikisql/")
+
 from ratsql.datasets import spider
 from ratsql.utils import registry
 from third_party.wikisql.lib import dbengine
@@ -52,7 +55,7 @@ def load_tables(paths):
     return schemas
 
 
-@registry.register('dataset', 'wikisql')
+# @registry.register('dataset', 'wikisql')
 class WikiSqlDataset(torch.utils.data.Dataset): 
     def __init__(self, paths, tables_paths, db_path, limit=None):
         self.paths = paths
@@ -128,4 +131,6 @@ if __name__=="__main__":
         tables_paths=['/workspaces/rat-sql/data/wikisql/train.tables.jsonl'], 
         db_path=['/workspaces/rat-sql/data/wikisql/train.db'],
         limit=100)
-    print(a.__getitem__(0))
+    print(a.__getitem__(0).schema.tables[0].columns[0])
+    print("\n")
+    print(a.__getitem__(0).schema.tables[0].columns[1])

@@ -123,7 +123,7 @@ def load_tables(paths):
     return schemas, eval_foreign_key_maps
 
 
-@registry.register('dataset', 'spider')
+# @registry.register('dataset', 'spider')
 class SpiderDataset(torch.utils.data.Dataset):
     def __init__(self, paths, tables_paths, db_path, demo_path=None, limit=None):
         self.paths = paths
@@ -142,7 +142,7 @@ class SpiderDataset(torch.utils.data.Dataset):
                     orig=entry,
                     orig_schema=self.schemas[entry['db_id']].orig)
                 self.examples.append(item)
-        
+                
         if demo_path:
             self.demos: Dict[str, List] = json.load(open(demo_path))
             
@@ -206,3 +206,13 @@ class SpiderDataset(torch.utils.data.Dataset):
                 'per_item': self.results,
                 'total_scores': self.evaluator.scores
             }
+
+if __name__=="__main__":
+    a = SpiderDataset(
+        paths=['/workspaces/rat-sql/data/spider/train_spider.json','/workspaces/rat-sql/data/spider/train_others.json'], 
+        tables_paths=['/workspaces/rat-sql/data/spider/tables.json'], 
+        db_path='/workspaces/rat-sql/data/spider/database',
+        limit=100)
+    print(a.__getitem__(0).schema.connection)
+    # print("\n")
+    # print(a.__getitem__(0).schema.tables[0].columns[1])

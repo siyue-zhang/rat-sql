@@ -27,7 +27,7 @@ setup(
         'tabulate~=0.8.6',
         'torch~=1.8.1',
         'torchtext~=0.3.1',
-        'tqdm',
+        'tqdm~=4.66.1',
         'transformers~=3.5.0',
         'scikit-learn',
         'protobuf~=3.20',

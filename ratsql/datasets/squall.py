@@ -2,13 +2,15 @@ import json, re
 from tqdm import tqdm
 
 import sys, os
-print(os.getcwd)
 sys.path.append("./third_party/spider/preprocess")
+sys.path.append("./third_party/spider")
 sys.path.append("./third_party/wikisql/")
 
 import networkx as nx
 import numpy as np
 import torch
+from pathlib import Path
+import sqlite3
 
 from ratsql.datasets import spider
 from ratsql.utils import registry
@@ -25,7 +27,7 @@ def preprocess_datasets(subset_name, save_dir, limit=None):
     for split in ["train", "validation", "test"]:
         dataset = raw_dataset[split]
         num_sample = len(dataset["nt"])
-        examples = {}
+        examples = []
         schema_dicts = {}
 
         for i in tqdm(range(num_sample)):
@@ -35,22 +37,28 @@ def preprocess_datasets(subset_name, save_dir, limit=None):
                 table_json = f"/workspaces/rat-sql/data/squall/tables/json/{tbl}.json"
                 f = open(table_json)
                 table_json = json.load(f)
-                header = table_json["headers"][2:]
+                header = table_json["headers"]
+                header = [h.replace(" ", '_') for h in header]
                 header_clean = [normalize(h)  for h in header]
                 column_names = []
+                orig_column_names = []
                 types = []
-                contents = table_json["contents"][2:]
+                contents = table_json["contents"]
                 for c in contents:
                     for cc in c:
                         types.append(cc["type"])
+                        orig_column_names.append(cc["col"])
                         match = re.search(r'c(\d+)', cc["col"])
-                        number_after_c = int(match.group(1))
-                        col_name = re.sub(r'c(\d+)', '{}'.format(header_clean[number_after_c-1]), cc["col"])
-                        column_names.append(col_name)
+                        if match:
+                            number_after_c = int(match.group(1))
+                            col_name = re.sub(r'c(\d+)', '{}'.format(header_clean[number_after_c-1]), cc["col"])
+                            column_names.append(col_name)
+                        else:
+                            column_names.append(cc["col"])
                 types_rev = []
                 for t in types:
                     if t in ["INTEGER", "LIST INTEGER", "REAL","LIST REAL"]:
-                        types_rev.append("real")
+                        types_rev.append("number")
                     else:
                         types_rev.append("text")
 
@@ -58,74 +66,75 @@ def preprocess_datasets(subset_name, save_dir, limit=None):
                     "tbl": tbl, 
                     "header":header_clean,
                     "columns":column_names,
-                    "column_types":types_rev}
+                    "column_types":types_rev,
+                    "orig_column_names":orig_column_names}
             
             header = schema_dicts[db_id]["header"]
             sql = dataset["sql"][i]
-            sql_rev = []
-            for token in sql["value"]:
-                match = re.search(r'c(\d+)', token)
-                if match:
-                    number_after_c = int(match.group(1))
-                    token_rev = re.sub(r'c(\d+)', '{}'.format(header[number_after_c-1]), token)
-                    sql_rev.append(token_rev)
-                elif token == 'w':
-                    sql_rev.append(tbl)
-                else:
-                    sql_rev.append(token)
-            sql_rev = ' '.join(sql_rev)
-            examples[db_id] = {
+            examples.append({
                 "nt": dataset["nt"][i],
-                "question_toks":dataset["nl"][i],
-                "sql": sql_rev,
+                "question":' '.join(dataset["nl"][i]),
+                "sql": ' '.join(sql["value"]),
                 "tables": [tbl],
                 "columns": schema_dicts[db_id]["columns"],
                 "column_types":schema_dicts[db_id]["column_types"],
+                "orig_columns": schema_dicts[db_id]["orig_column_names"],
                 "header": schema_dicts[db_id]["header"],
                 "tgt": dataset["tgt"][i]
-            }
+            })
             if limit and i>limit:
                 break
 
         with open(f"{save_dir}/{split}{subset_name}.json", "w") as file:
             json.dump(examples, file)
 
-        print(f"Save squall {split} set!")
+        print(f"Save squall {split} set! {save_dir}/{split}{subset_name}.json")
 
     return
 
-@registry.register('dataset', 'squall')
+# @registry.register('dataset', 'squall')
 class SquallDataset(torch.utils.data.Dataset): 
-    def __init__(self, path, limit=None):
-        f = open(path)
-        data = json.load(f)
+    def __init__(self, path, db_path, limit=None):
+        self.raw_examples = json.load(open(path))
         self.examples = []
-        for k in data:
+        self.total_num_examples = 0
+        for example in self.raw_examples:
             # only 1 table in squall
-            example = data[k]
+            self.total_num_examples += 1
             tbl = example["tables"][0]
             tables = (spider.Table(
                 id=0,
-                name=[tbl],
-                unsplit_name=tbl,
+                name=['w'],
+                unsplit_name='w',
                 orig_name=tbl,
             ),)
             column_names = example["columns"]
             column_types = example["column_types"]
+            orig_column_names = example["orig_columns"]
             columns = tuple(
                 spider.Column(
-                    id=i,
+                    id=i+1,
                     table=tables[0],
-                    name=col_name.split(),
-                    unsplit_name=col_name,
-                    orig_name=col_name,
+                    name=col_name.replace("_", " ").split(),
+                    unsplit_name=col_name.replace("_", " "),
+                    orig_name=orig_col_name,
                     type=col_type,
                 )
-                for i, (col_name, col_type) in enumerate(zip(
+                for i, (col_name, col_type, orig_col_name) in enumerate(zip(
                     column_names,
-                    column_types
+                    column_types,
+                    orig_column_names
                 ))
             )
+            zero_column = (spider.Column(
+                id = 0,
+                table = tables[0],
+                name = ['*'],
+                unsplit_name = '*',
+                orig_name = '*',
+                type = 'text',
+            ),)
+            columns = zero_column + columns
             # Link columns to tables
             for column in columns:
                 if column.table:
@@ -136,32 +145,58 @@ class SquallDataset(torch.utils.data.Dataset):
             # Final argument: don't keep the original schema
             schema = spider.Schema(tbl, tables, columns, foreign_key_graph, None)
             
-            print(example["sql"])
-            # sql = "SELECT name ,  country ,  age FROM singer ORDER BY age DESC"
+            # convert the sql query format for the grammar
+            # print(example["sql"])
             sql = example["sql"]
-            table_spider = {'table_names_original':tbl}
-            table_spider['column_names_original'] = [[0, c] for c in column_names]
-            schema_spider = Schema_spider({tbl:column_names}, table_spider)
-            print({tbl:column_names},'\n')
-            print(table_spider)
-            sql_label = get_sql(schema_spider, sql)
-            print(sql_label)
-            assert 1==2
+            table_spider = {'table_names_original':['w']}
+            table_spider['column_names_original'] = [[0, c] for c in orig_column_names]
+            table_spider['column_names_original'] = [[-1, '*']] + table_spider['column_names_original']
+            schema_spider = Schema_spider({'w':orig_column_names}, table_spider)
+            parsable = False
+            try:
+                sql_label = get_sql(schema_spider, sql)  # Attempt to run get_sql()
+                parsable = True  # If get_sql() runs without error, set parsable to True
+            except Exception as e:
+                print(f"\nSQL can not be parsed ({example['nt']})! \n {sql}")
+            # print('\nAA', sql, '\n', sql_label, '\n')
 
-            item = spider.SpiderItem(
-                text=example["question_toks"],
-                code=sql_label,
-                schema=schema,
-                orig={
-                    'question': example["question_toks"],
-                },
-                orig_schema=None)
-            
-            self.examples.append(item)
+            if parsable:
+                col_names = [[0, '*'],]
+                for idx, name in enumerate(column_names):
+                    col_names.append([idx+1, name.replace("_", " ")])
+                table_spider['column_names'] = col_names
+                table_spider['table_names'] = ['w']
+                table_spider['db_id'] = tbl
+                table_spider['foreign_keys'] = None
+                table_spider['primary_keys'] = None
 
-            if limit and len(self.examples) >= limit:
+                item = spider.SpiderItem(
+                    text=example["question"],
+                    code=sql_label,
+                    schema=schema,
+                    orig={
+                        'question': example["question"],
+                    },
+                    orig_schema=table_spider)
+                
+                sqlite_path = f"{db_path}/{tbl}.db"
+                source: sqlite3.Connection
+                with sqlite3.connect(str(sqlite_path)) as source:
+                    dest = sqlite3.connect(':memory:')
+                    dest.row_factory = sqlite3.Row
+                    source.backup(dest)
+                item.schema.connection = dest
+
+                self.examples.append(item)
+
+            if limit and len(self.total_num_examples) >= limit:
                 break
 
+            # print(item.schema.columns[0].orig_name)
+            # assert 1==2
+
+        print("total: ", self.total_num_examples, "parsable: ", len(self.examples))
+        
     def __len__(self):
         return len(self.examples)
 
@@ -210,7 +245,9 @@ class SquallDataset(torch.utils.data.Dataset):
 
 
 if __name__=="__main__":
-    # preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall", limit=10)
-    # a = SquallDataset(path="/workspaces/rat-sql/data/squall/train1.json", limit=2)
-    print(tokenize("sh she_is"))
-    # print(a.__getitem__(0))
+    # preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall", limit=2000)
+    a = SquallDataset(path="/workspaces/rat-sql/data/squall/train1.json", db_path='/workspaces/rat-sql/data/squall/tables/db')
+    # print(a.__getitem__(0).schema.tables[0].columns[0])
+    # print("\n")
+    # print(a.__getitem__(0).schema.tables[0].columns[1])
+    

@@ -125,5 +125,7 @@ def compute_cell_value_linking(tokens, schema):
                     # print(word, ret)
                     cell_match[f"{q_id},{col_id}"] = CELL_MATCH_FLAG
 
+
+
     cv_link = {"num_date_match": num_date_match, "cell_match": cell_match}
     return cv_link

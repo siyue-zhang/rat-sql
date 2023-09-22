@@ -1,6 +1,6 @@
 {
-    logdir: "logdir/bert_run",
-    model_config: "configs/squall/nl2code-bert.jsonnet",
+    logdir: "logdir/squall_bert_run",
+    model_config: "configs/squall/nl2code-squall-bert.jsonnet",
     model_config_args: {
         data_path: 'data/squall/',
         bs: 6,
