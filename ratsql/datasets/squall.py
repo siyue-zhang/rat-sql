@@ -245,7 +245,7 @@ class SquallDataset(torch.utils.data.Dataset):
 
 
 if __name__=="__main__":
-    # preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall", limit=2000)
+    preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall")
     a = SquallDataset(path="/workspaces/rat-sql/data/squall/train1.json", db_path='/workspaces/rat-sql/data/squall/tables/db')
     # print(a.__getitem__(0).schema.tables[0].columns[0])
     # print("\n")

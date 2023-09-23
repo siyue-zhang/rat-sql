@@ -8,7 +8,7 @@
         bert_version: "bert-large-uncased-whole-word-masking",
         summarize_header: "avg",
         use_column_type: false,
-        max_steps: 81000,
+        max_steps: 1000,
         num_layers: 8,
         lr: 7.44e-4,
         bert_lr: 3e-6,
