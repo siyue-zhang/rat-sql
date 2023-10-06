@@ -95,13 +95,13 @@ def preprocess_datasets(subset_name, save_dir, limit=None):
 
 # @registry.register('dataset', 'squall')
 class SquallDataset(torch.utils.data.Dataset): 
-    def __init__(self, path, db_path, limit=None):
+    def __init__(self, path, db_path, limit=None, save_json=False):
         self.raw_examples = json.load(open(path))
         self.examples = []
         self.total_num_examples = 0
         count = 0
+        self.save = {}
         for jj, example in enumerate(self.raw_examples):
-
             if example['nt'] in ['nt-6989', 'nt-4316']:
                 # skip these questions which have only 1 case but case complex structure change
                 
@@ -111,9 +111,7 @@ class SquallDataset(torch.utils.data.Dataset):
                 # nt-4316
                 # select c4 from w group by c4 order by count ( c5_number1 > c5_number2 ) desc limit 1
                 continue
-
             count += 1
-            # print('count ', count)
             if example['nt'] != 'n':
             # if example['nt'] == 'nt-13348':
                 # only 1 table in squall
@@ -164,6 +162,7 @@ class SquallDataset(torch.utils.data.Dataset):
                 
                 # convert the sql query format for the grammar
                 sql = example["sql"]
+                print(sql)
                 nt = example['nt']
                 table_spider = {'table_names_original':['w']}
                 table_spider['column_names_original'] = [[0, c] for c in orig_column_names]
@@ -175,16 +174,17 @@ class SquallDataset(torch.utils.data.Dataset):
                 # if sql == "select count ( distinct ( c2 ) ) from w where c7 = 'win' and abs ( c6_number1 - c6_number2 ) > 3":
                 print('\n', jj, ' ', nt)
                 # print(table_spider['column_names_original'])
-                if 'present_ref' in sql:
-                    print(f'found wired keyword present_ref in {sql}')
-                    continue
-                if 'julianday' in sql:
-                    print(f'found wired keyword julianday in {sql}')
-                    continue
-                if 'length (' in sql:
-                    print(f'found wired keyword julianday in {sql}')
-                    continue
+                # if 'present_ref' in sql:
+                #     print(f'found wired keyword present_ref in {sql}')
+                #     continue
+                # if 'julianday' in sql:
+                #     print(f'found wired keyword julianday in {sql}')
+                #     continue
+                # if 'length (' in sql:
+                #     print(f'found wired keyword julianday in {sql}')
+                #     continue
                 sql_label = get_sql_squall(schema_spider, sql, nt, debug=True)  # Attempt to run get_sql()
+                self.save[nt] = {'sql': sql, 'parsed': sql_label}
                 # assert 1==2
                 # try:
                 #     sql_label = get_sql(schema_spider, sql)  # Attempt to run get_sql()
@@ -228,6 +228,9 @@ class SquallDataset(torch.utils.data.Dataset):
                 # print(item.schema.columns[0].orig_name)
                 # assert 1==2
 
+        if save_json:
+            with open('./data/squall/rat-sql/parsed_squall.json', "w") as json_file:
+                json.dump(self.save, json_file, indent=4)
         print("total: ", self.total_num_examples, "parsable: ", len(self.examples))
         
     def __len__(self):
@@ -279,7 +282,7 @@ class SquallDataset(torch.utils.data.Dataset):
 
 if __name__=="__main__":
     # preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall/rat-sql")
-    a = SquallDataset(path="/workspaces/rat-sql/data/squall/rat-sql/train1.json", db_path='/workspaces/rat-sql/data/squall/tables/db')
+    a = SquallDataset(path="/workspaces/rat-sql/data/squall/rat-sql/train1.json", db_path='/workspaces/rat-sql/data/squall/tables/db', save_json=True)
     # print(a.__getitem__(0).schema.tables[0].columns[0])
     # print("\n")
     # print(a.__getitem__(0).schema.tables[0].columns[1])

@@ -10,14 +10,14 @@ module Squall
         | String(string s)
         | ValSql(sql s)
         | ColUnit(col_unit c)
+        | Present_ref
         | Terminal
 
     -- col_unit: (agg_id, col_id, isDistinct(bool))
     col_unit = (
       agg_type agg_id,
-      -- TODO fix
       column col_id,
-      singleton is_distinct
+      singleton is_distinct,
     )
 
     -- val_unit: (unit_op, col_unit1, col_unit2)
@@ -125,8 +125,8 @@ module Squall
     -- UNIT_OPS = ('none', '-', '+', "*", '/', 'abs(-)')
     --unit_type = NoneUnitOp | Minus | Plus | Times | Divide | AbsMinus
 
-    -- AGG_OPS = ('none', 'max', 'min', 'count', 'sum', 'avg')
-    agg_type = NoneAggOp | Max | Min | Count | Sum | Avg
+    -- AGG_OPS = ('none', 'max', 'min', 'count', 'sum', 'avg', 'julianday', 'length')
+    agg_type = NoneAggOp | Max | Min | Count | Sum | Avg | Julianday | Length
 
     -- TABLE_TYPE = {
     --     'sql': "sql",

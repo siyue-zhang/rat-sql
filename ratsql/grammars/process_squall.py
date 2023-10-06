@@ -4,16 +4,19 @@
 #   2. only table name has alias
 #   3. only one intersect/union/except
 #
-# val: number(float)/string(str)/sql(dict)
+# val: number(float)/string(str)/sql(dict)/present_ref(string)
 # col_unit: (agg_id, col_id, isDistinct(bool))
 # val_unit: (unit_op, col_unit1, val2)
+# dual_val: (unit_op, val1, val2)
 # table_unit: (table_type, col_unit/sql)
-# cond_unit: (not_op, op_id, val_unit, val1, val2)
+# cond_unit: (not_op, op_id, val_unit, dual_val1, dual_val2)
+# nested_condition: [cond1, 'and'/'or', cond2, ...]
 # condition: [cond_unit1, 'and'/'or', cond_unit2, ...]
+# query: (query_op, val1, val2)
 # sql {
 #   'select': (isDistinct(bool), [(agg_id, val_unit), (agg_id, val_unit), ...])
 #   'from': {'table_units': [table_unit1, table_unit2, ...], 'conds': condition}
-#   'where': condition
+#   'where': nested_condition
 #   'groupBy': [col_unit1, col_unit2, ...]
 #   'orderBy': ('asc'/'desc', [val_unit1, val_unit2, ...])
 #   'having': condition
@@ -34,7 +37,7 @@ JOIN_KEYWORDS = ('join', 'on', 'as')
 
 WHERE_OPS = ('not', 'between', '=', '>', '<', '>=', '<=', '!=', 'in', 'like', 'is', 'exists', 'notnull', 'isnull')
 UNIT_OPS = ('none', '-', '+', "*", '/', 'abs', 'sum')
-AGG_OPS = ('none', 'max', 'min', 'count', 'sum', 'avg')
+AGG_OPS = ('none', 'max', 'min', 'count', 'sum', 'avg', 'julianday', 'length')
 TABLE_TYPE = {
     'sql': "sql",
     'table_unit': "table_unit",
@@ -46,7 +49,6 @@ ORDER_OPS = ('desc', 'asc')
 
 DUAL_VAL_OPS = ('none','-', '+', "*", '/', '>', '<', '>=','<=')
 QUERY_OPS = ('none','-', '+', "*", '/', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min')
-SQUALL_KEYWORDS = ('present_ref', 'julianday', 'length')
 
 class Schema:
     """
@@ -130,7 +132,6 @@ def tokenize(string):
     # "'n bietjie"
 
     tmp = string.replace("\\'","__").replace('\\"',"__")
-    # print('temp string ', tmp)
     patterns = [
         r'\'.*?\d{1,}\/*\d*\".*?\'', # '1/10"'
         r'\"[^\"\']*?\'[^\"\']*?\"' ,
@@ -257,7 +258,9 @@ def parse_col_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         idx += 1
 
     if debug:
-        print('parse col unit start: ', idx, toks[idx], isBlock)
+        print('parse col unit start: ', idx, isBlock)
+        if idx<len_:
+            print('tok: ', toks[idx])
 
     if toks[idx] in AGG_OPS:
         agg_id = AGG_OPS.index(toks[idx])
@@ -273,10 +276,15 @@ def parse_col_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
             idx+=1
 
     if debug:
-        print('before parse col: ', idx, toks[idx], toks)
+        print('before parse col: ', idx, toks)
+        if idx<len_:
+            print('tok: ', toks[idx])
     idx, col_id = parse_col(toks, idx, tables_with_alias, schema, default_tables, debug=debug)
+    
     if debug:
-        print('parse col result: ', idx, toks[idx], col_id)
+        print('parse col result: ', idx, 'col id: ', col_id)
+        if idx<len_:
+            print('tok: ', toks[idx])
 
     if isDistinct and distinct_bracket:
         assert toks[idx] == ')'
@@ -298,8 +306,9 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
     idx = start_idx
     len_ = len(toks)
     if debug:
-        print('parse val unit start: ', idx, 'token', toks[idx], 'total: ', len_)
-
+        print('parse val unit start: ', idx, 'total: ', len_)
+        if idx<len_:
+            print('tok: ', toks[idx])
     isBlock = False
     if toks[idx] == '(':
         isBlock = True
@@ -372,8 +381,10 @@ def parse_table_unit(toks, start_idx, tables_with_alias, schema):
 
 
 def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None, debug=False):
-    # print('value', toks[start_idx], start_idx)
+    if debug:
+        print('parse value start')
     idx = start_idx
+    len_ = len(toks)
 
     isBlock = False
     if toks[idx] == '(':
@@ -381,7 +392,11 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None,
         idx += 1
 
     if toks[idx] == 'select':
-        idx, val = parse_sql(toks, idx, tables_with_alias, schema, debug=debug)
+        idx, val = parse_sql(toks, idx, tables_with_alias, schema, debug=True)
+        print('after parse sql: ', idx, 'total: ', len_)
+    elif toks[idx] == 'present_ref':
+        val = 'present_ref'
+        idx += 1
     elif "\"" in toks[idx] or "\'" in toks[idx]:  # token is a string value
         val = toks[idx]
         idx += 1
@@ -392,13 +407,10 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None,
         except:
             idx, val = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables, debug=debug)
 
-            # end_idx = idx
-            # while end_idx < len_ and toks[end_idx] != ',' and toks[end_idx] != ')'\
-            #     and toks[end_idx] != 'and' and toks[end_idx] not in CLAUSE_KEYWORDS and toks[end_idx] not in JOIN_KEYWORDS:
-            #         end_idx += 1
-            # print('x', idx, end_idx)
-            # idx, val = parse_col_unit(toks[start_idx: end_idx], 0, tables_with_alias, schema, default_tables)
-            # idx = end_idx
+    if debug:
+        print('end of parse vale: ', isBlock, idx)
+        if idx<len_:
+            print('tok', toks[idx])
 
     if isBlock:
         assert toks[idx] == ')'
@@ -408,8 +420,7 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None,
 
 
 def parse_dual_value(toks, start_idx, tables_with_alias, schema, default_tables=None, debug=False):
-    if debug:
-        print('dual val start ', toks[start_idx], toks)
+
     idx = start_idx
     len_ = len(toks)
     # (dual_val_op, val1, val2)
@@ -417,71 +428,22 @@ def parse_dual_value(toks, start_idx, tables_with_alias, schema, default_tables=
     val1 = None
     val2 = None
 
-    isBlock = False
-    if toks[idx] == '(':
-        isBlock = True
-        idx += 1
+    if debug:
+        print('dual val start ', idx, toks)
+        if idx<len_:
+            print('tok: ', toks[idx])
 
-    if toks[idx] == 'select':
-        # print('before sql ', idx, toks[idx], toks)
-        sql_end = len_
-        if isBlock and toks[-1]!=')':
-            sql_end = len_ - toks[-1::-1].index(")")
-        # print('sql ', toks[:sql_end])
-        idx, val1 = parse_sql(toks[:sql_end], idx, tables_with_alias, schema)
-        # print('sql sd out ', idx, toks[idx])
-    elif "\"" in toks[idx] or "\'" in toks[idx]:  # token is a string value
-        val1 = toks[idx]
-        idx += 1
-    else:
-        try:
-            val1 = float(toks[idx])
-            idx += 1
-        except:
-            end_idx = idx
-            while end_idx < len_ and toks[end_idx] != ',' and toks[end_idx] != ')'\
-                and toks[end_idx] != 'and' and toks[end_idx] not in CLAUSE_KEYWORDS and toks[end_idx] not in JOIN_KEYWORDS:
-                    end_idx += 1
+    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables, debug)
+    if debug:
+        print('first value success: ', idx, 'total: ', len_)
+        if idx < len_:
+            print(' tok: ', toks[idx])
 
-            idx, val1 = parse_col_unit(toks[start_idx: end_idx], 0, tables_with_alias, schema, default_tables)
-            idx = end_idx
-
-    if isBlock:
-        assert toks[idx] == ')'
-        idx += 1
-
-    if idx < len_ and toks[idx] in DUAL_VAL_OPS:
+    if idx<len_ and toks[idx] in DUAL_VAL_OPS:
         dual_val_op = DUAL_VAL_OPS.index(toks[idx])
         idx += 1
-
-        isBlock = False
-        if toks[idx] == '(':
-            isBlock = True
-            idx += 1
-
-        if toks[idx] == 'select':
-            idx, val2 = parse_sql(toks, idx, tables_with_alias, schema)
-        elif "\"" in toks[idx]:  # token is a string value
-            val2 = toks[idx]
-            idx += 1
-        else:
-            try:
-                val2 = float(toks[idx])
-                idx += 1
-            except:
-                end_idx = idx
-                while end_idx < len_ and toks[end_idx] != ',' and toks[end_idx] != ')'\
-                    and toks[end_idx] != 'and' and toks[end_idx] not in CLAUSE_KEYWORDS and toks[end_idx] not in JOIN_KEYWORDS:
-                        end_idx += 1
-
-                idx, val2 = parse_col_unit(toks[start_idx: end_idx], 0, tables_with_alias, schema, default_tables)
-                idx = end_idx
-
-        if isBlock:
-            assert toks[idx] == ')'
-            idx += 1
-
-    # print('dual val out ', idx, toks[idx-1])
+        idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables, debug)
+    
     return idx, (dual_val_op, val1, val2)
 
 
@@ -489,16 +451,25 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
     idx = start_idx
     len_ = len(toks)
     conds = []
+
     if debug:
-        print('parse condition start: idx ', idx, 'token: ', toks[idx], 'total: ', len_ )
+        print('parse condition start: idx ', idx, 'token: ', toks[idx], 'total: ', len_, toks )
+
+    isBlock = False # sub condition
+    if toks[idx]=='(':
+        isBlock = True
+        idx+=1
 
     while idx < len_:
         if debug:
             print('condition run start: idx ', idx, 'token: ', toks[idx])
+
         idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables, debug=debug)
         if debug:
             print('condition run get: ', val_unit)
-            print('after run: ', idx, 'token: ', 'total: ', len_)
+            print('after run: ', idx, 'total: ', len_)
+            if idx<len_:
+                print('tok: ', toks[idx])
 
         not_op = False
         vals = []
@@ -509,7 +480,7 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
 
         assert idx < len_ and toks[idx] in WHERE_OPS, "Error condition: idx: {}, tok: {}".format(idx, toks[idx])
         op_id = WHERE_OPS.index(toks[idx])
-        # print('where ops ', toks[idx])
+
         idx += 1
         dual_val1 = dual_val2 = None
         # between case: two values
@@ -536,38 +507,48 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                 vals.append(val)
                 if toks[idx] == ',':
                     raise ValueError('If "where" condition "in" more than one values, must use "(val1 , val2)" ')
+        # is null case
         elif op_id == WHERE_OPS.index('is'):
             if toks[idx]=='null':
                 op_id = WHERE_OPS.index('isnull')
                 idx += 1
             else:
                 raise ValueError('"is" can be only used for "is null" ')
+        # not null case
         elif op_id == WHERE_OPS.index('not') and toks[idx]=='null':
                 op_id = WHERE_OPS.index('notnull')
                 idx += 1
-        else:  # normal case: single value
-            # print('before dual value ', idx, toks[idx])
+        # normal case: single value
+        else:
+            if debug:
+                print('before parse dual value ', idx, toks[idx], toks)
             idx, dual_val1 = parse_dual_value(toks, idx, tables_with_alias, schema, default_tables, debug=debug)
             dual_val2 = None
 
         if debug:
             print('after 1 run dual value ', idx, 'total len ', len_)
+            if idx<len_:
+                print('tok: ', toks[idx])
 
         conds.append((not_op, op_id, val_unit, dual_val1, dual_val2, vals))
-
-        # print('break', idx)
-        if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";") or toks[idx] in JOIN_KEYWORDS):
-            # print('BREAK')
-            break
-
-        if idx < len_ and toks[idx] in COND_OPS:
-            conds.append(toks[idx])
-            idx += 1  # skip and/or
         
-        # print('conds', conds)
-
-    # print('final conds', conds)
-    # print('returned')
+        # if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx]in[";",")"] or toks[idx] in JOIN_KEYWORDS):
+        #     if isBlock:
+        #         idx+=1
+        #     break
+        
+        if idx < len_:
+            if toks[idx] in COND_OPS:
+                if toks[idx+1]=='(':
+                    break
+                else:
+                    conds.append(toks[idx])
+                    idx += 1  # skip and/or
+            else:
+                if isBlock:
+                    idx+=1
+                break
+        
     return idx, conds
 
 
@@ -581,11 +562,17 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
     from_index = select_tokens.index('from')
     select_tokens = select_tokens[:from_index]
     # print('check parse ', select_tokens)
+
+    # max (c1 + c2)
+    # count (c1) + count (c2)
+    # count ( distinct ( c2 ) )
     if re.search(r'select .* \( .* \) [\+\-] .*', ' '.join(select_tokens)):
-        agg_inside = True
+        if select_tokens.count('(')>2: # max ( count ( c1 ) + count ( c2 ) )
+            agg_inside = False
+        else:
+            agg_inside = True
     else:
         agg_inside = False
-    # print('agg inside ', agg_inside)
 
     idx += 1
     isDistinct = False
@@ -593,10 +580,7 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
         idx += 1
         isDistinct = True
     val_units = []
-    # max (c1 + c2)
-    # count (c1) + count (c2)
-    # count ( distinct ( c2 ) )
-    # max()
+
 
     agg_bracket = False
     while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS:
@@ -665,6 +649,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         if isBlock:
             assert toks[idx] == ')'
             idx += 1
+
         if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
             break
 
@@ -672,71 +657,40 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
 
 
 def parse_nested_where(toks, start_idx, tables_with_alias, schema, default_tables, debug=False):
-    if debug:
-        print('parse nested where start :', start_idx, toks)
+
     idx = start_idx
     len_ = len(toks)
+
+    if debug:
+        print('parse nested where start :', start_idx, 'total: ', len_)
 
     if idx >= len_ or toks[idx] != 'where':
         return idx, []
     idx += 1
+    
+    # __: val_unit / op_sql / val
+    # where __ and __ and __
+    # where ( __ and __ ) and ( __ and __ )
+    # where __ and ( __ and __ )
 
     nested_conds = []
     while idx < len_:
         if debug:
             print('condition run start idx: ', idx, 'token: ', toks[idx], 'total: ', len_)
-        if toks[idx]=='(':
-            left = idx+1
-            while True:
-                idx += 1
-                if toks[idx]==')':
-                    right = idx
-                    break
-            assert 'and' in toks[left:right] or 'or' in toks[left:right]
-            isNested = True
-        else:
-            left = idx
-            left_count = 0
-            while True:
-                idx += 1
-                if left_count==0 and toks[idx]==')':
-                    right = idx
-                    break
-                if toks[idx]=='(':
-                    idx += 1
-                    left_count += 1
-                    try:
-                        idx, _ = parse_sql(toks, idx, tables_with_alias, schema)
-                        assert toks[idx]==')' and left_count>0
-                        left_count -= 1
-                        print('detected')
-                    except Exception:
-                        print('not detected')
-                        pass
-                if toks[idx] in COND_OPS:
-                    right = idx
-                    break
-                if idx==len_-1:
-                    right = idx+1
-                    break
-            isNested = False
-
-        _, conds = parse_condition(toks[left:right], 0, tables_with_alias, schema, default_tables, debug=debug)
         
-        if debug:
-            print("condition to parse: ", toks[left:right])
-            print('get condition: ', conds)
-
+        idx, conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables, debug=debug)
         nested_conds.append(conds)
-        if isNested:
-            idx += 1 # skip ')'
-        if idx<len_ and toks[idx] in COND_OPS:
+
+        # if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx]in[")",";"] or toks[idx] in JOIN_KEYWORDS):
+        #     break
+        
+        if idx < len_ and toks[idx] in COND_OPS:
             op_id = COND_OPS.index(toks[idx])
             nested_conds.append(op_id)
             idx += 1
         else:
             break
-
+        
     return idx, nested_conds
 
 def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
@@ -831,6 +785,8 @@ def parse_limit(toks, start_idx):
 
 
 def parse_sql(toks, start_idx, tables_with_alias, schema, debug=False):
+    if debug:
+        print('parse sql start: ', start_idx, toks)
     isBlock = False # indicate whether this is a block of sql/sub-sql
     len_ = len(toks)
     idx = start_idx
@@ -903,7 +859,6 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         sql_string = 'select ( ' + sql_string.replace(check, '') + ' )' + check
         toks = tokenize(sql_string)
         print('after rewriting ', sql_string)
-
     # (2a) select c2_number + c3_number + c4_number from w where c1 = 'kansas'
     # --> select ( select ( c2_number + c3_number ) from w where c1 = 'kansas' ) + ( select c4_number from w where c1 = 'kansas' )
     # (2b) select c2_number + c3_number + 3 from w where c1 = 'kansas'
@@ -950,12 +905,22 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         print('rewriting6 ', sql_string)
         sql_string = "select count ( c3 ) from w where c8_number not null and c8_number >= 10"
         toks = tokenize(sql_string)
+    # (7)
     if nt == 'nt-12172':
     # select 159 > ( select c5_number from w where c3_first = 'townsend bell' )
         print('rewriting7 ', sql_string)
         sql_string = "select ( select c5_number from w where c3_first = 'townsend bell' ) < 159"
         toks = tokenize(sql_string)
+    # (8)
+    if toks[0]=='select' and toks[1]=='present_ref' and toks[3]+toks[4]!='(select':
+    # select present_ref - c6_year from w where c2 = 'luandensis'
+    # select present_ref - min ( c1_number ) from w
+    # NOT: select present_ref - ( select c4_number from w where c1 = 'kalakaua middle school' )
+        print('rewriting8 ', sql_string)
+        sql_string = f"select present_ref {toks[2]} ( select {' '.join(toks[3:])} )"
+        toks = tokenize(sql_string)
 
+    # replace sub query in the bracket by underscore
     toks_template = toks.copy()
     i=0
     while i < len(toks_template):
@@ -976,6 +941,7 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
     print(sql_string)
     print(toks_template_string)
 
+    # identify different query structures
     pattern1 = r'(select )(.*)(\( [ _]{1,} \))( .{1,} )(\( [ _]{1,}? \))(.*)'
     pattern2 = r'(select )(\( [ _]{1,} \)) (.{1,})'
     pattern3 = r'select (\d{1,}) ([\+\-]) (\( [ _]{1,} \))'
@@ -983,11 +949,16 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
     search2 = re.findall(pattern2, toks_template_string)
     search3 = re.findall(pattern3, toks_template_string)
     exception1 = False
+    exception3 = False
+    # some exception cases for pattern1
     if search1:
         if len(search1[0][1])>0:
             exception1 = sum([ tok in search1[0][1] for tok in ['abs', 'min']])==0
+    if not search3:
+        exception3 = re.findall(r'select (present_ref) ([\+\-]) (\( [ _]{1,} \))', toks_template_string)
     # print(search1)
     # print(search2)
+
     if not exception1 and search1:
         assert len(search1)==1
         print('match 1')
@@ -1008,9 +979,9 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
 
         if 'abs' in prefix or 'min' in prefix:
             assert ')' in suffix
-        
-        val1 = parse_value(tokenize(sql1), 0, tables_with_alias, schema)
-        val2 = parse_value(tokenize(sql2), 0, tables_with_alias, schema)
+
+        val1 = parse_value(tokenize(sql1), 0, tables_with_alias, schema, debug=debug)
+        val2 = parse_value(tokenize(sql2), 0, tables_with_alias, schema, debug=debug)
      
         if query_op=='-' and 'abs' in prefix:
             query_op = QUERY_OPS.index('abs')
@@ -1019,7 +990,6 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         else:
             query_op = QUERY_OPS.index(query_op)
 
-        # print('HH', prefix, sql1, query_op, sql2, suffix)        
     elif search2:
         assert len(search2)==1
         print('match 2')
@@ -1034,12 +1004,16 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
             query_op = QUERY_OPS.index(toks[-2])
             _, val2 = parse_value(toks, len(toks)-1, tables_with_alias, schema, default_tables=None)
         val1 = parse_value(toks[2:-3], 0, tables_with_alias, schema)
-    elif search3:
+
+    elif search3 or exception3:
+        if exception3:
+            search3 = exception3
         assert len(search3)==1
         print('match 3')
         val1 = parse_value(tokenize(toks[1]), 0, tables_with_alias, schema)
         query_op = QUERY_OPS.index(toks[2])
         val2 = parse_value(toks[3:], 0, tables_with_alias, schema)
+
     elif 'from' not in toks:
         print('match 4')
         # select 2015 - 1912
@@ -1048,53 +1022,10 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         val1 = parse_value(tokenize(val1), 0, tables_with_alias, schema)
         query_op = QUERY_OPS.index(query_op)
         val2 = parse_value(tokenize(val2), 0, tables_with_alias, schema)
+
     else:
         print('match 5')
         _, val1 = parse_value(toks, start_idx, tables_with_alias, schema, debug=debug)
-        
-    # if re.search(structure_pattern1, toks_template_string):
-    #     print('match 1')
-
-        
-    #     abs, sql1, query_op, sql2 = re.findall(structure_pattern1, sql_string)[0]
-    #     print(abs, '|', sql1,'|', query_op,'|', sql2 )
-    #     if 'abs' in abs or 'min' in abs:
-    #         assert sql2[-2:]==' )'
-    #         sql2 = sql2[:-2]
-    #     # print(sql2)
-    #     val1 = parse_value(tokenize(sql1), 0, tables_with_alias, schema)
-    #     val2 = parse_value(tokenize(sql2), 0, tables_with_alias, schema)
-    #     if query_op=='-' and 'abs' in abs:
-    #         query_op = QUERY_OPS.index('abs')
-    #     elif query_op==',' and 'min' in abs:
-    #         query_op = QUERY_OPS.index('min')
-    #     else:
-    #         query_op = QUERY_OPS.index(query_op)
-    # elif re.search(structure_pattern2, sql_string):
-    #     print('match 2')
-    #     if toks[-1]=='null':
-    #         if toks[-2]=='is':
-    #             query_op = QUERY_OPS.index("isnull")
-    #         elif toks[-2]=='not':
-    #             query_op = QUERY_OPS.index("notnull")
-    #         else:
-    #             NotImplemented
-    #     else:
-    #         query_op = QUERY_OPS.index(toks[-2])
-    #         _, val2 = parse_value(toks, len(toks)-1, tables_with_alias, schema, default_tables=None)
-    #     val1 = parse_value(toks[2:-3], 0, tables_with_alias, schema)
-    # elif 'from' not in toks:
-    #     print('match 3')
-    #     # select 2015 - 1912
-    #     assert toks[0]=='select'
-    #     _, val1, query_op, val2 = toks
-    #     val1 = parse_value(tokenize(val1), 0, tables_with_alias, schema)
-    #     query_op = QUERY_OPS.index(query_op)
-    #     val2 = parse_value(tokenize(val2), 0, tables_with_alias, schema)
-    # else:
-    #     print('match 4')
-    #     # print(toks)
-    #     _, val1 = parse_value(toks, start_idx, tables_with_alias, schema)
         
     sql_query = (query_op, val1, val2)
     return idx, sql_query
