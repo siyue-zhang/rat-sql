@@ -19,6 +19,7 @@ from ratsql.utils import registry
 from datasets import load_dataset
 from ratsql.datasets.squall_lib.utils import normalize
 from third_party.spider.process_sql import *
+from ratsql.grammars.process_squall import get_sql as get_sql_squall
 from third_party.spider.preprocess.parse_sql_one import Schema as Schema_spider
 
 def preprocess_datasets(subset_name, save_dir, limit=None):
@@ -98,102 +99,134 @@ class SquallDataset(torch.utils.data.Dataset):
         self.raw_examples = json.load(open(path))
         self.examples = []
         self.total_num_examples = 0
-        for example in self.raw_examples:
-            # only 1 table in squall
-            self.total_num_examples += 1
-            tbl = example["tables"][0]
-            tables = (spider.Table(
-                id=0,
-                name=['w'],
-                unsplit_name='w',
-                orig_name=tbl,
-            ),)
-            column_names = example["columns"]
-            column_types = example["column_types"]
-            orig_column_names = example["orig_columns"]
-            columns = tuple(
-                spider.Column(
-                    id=i+1,
-                    table=tables[0],
-                    name=col_name.replace("_", " ").split(),
-                    unsplit_name=col_name.replace("_", " "),
-                    orig_name=orig_col_name,
-                    type=col_type,
-                )
-                for i, (col_name, col_type, orig_col_name) in enumerate(zip(
-                    column_names,
-                    column_types,
-                    orig_column_names
-                ))
-            )
-            zero_column = (spider.Column(
-                id = 0,
-                table = tables[0],
-                name = ['*'],
-                unsplit_name = '*',
-                orig_name = '*',
-                type = 'text',
-            ),)
-            columns = zero_column + columns
-            # Link columns to tables
-            for column in columns:
-                if column.table:
-                    column.table.columns.append(column) 
-            # No primary keys
-            # No foreign keys
-            foreign_key_graph = nx.DiGraph()
-            # Final argument: don't keep the original schema
-            schema = spider.Schema(tbl, tables, columns, foreign_key_graph, None)
-            
-            # convert the sql query format for the grammar
-            # print(example["sql"])
-            sql = example["sql"]
-            table_spider = {'table_names_original':['w']}
-            table_spider['column_names_original'] = [[0, c] for c in orig_column_names]
-            table_spider['column_names_original'] = [[-1, '*']] + table_spider['column_names_original']
-            schema_spider = Schema_spider({'w':orig_column_names}, table_spider)
-            parsable = False
-            try:
-                sql_label = get_sql(schema_spider, sql)  # Attempt to run get_sql()
-                parsable = True  # If get_sql() runs without error, set parsable to True
-            except Exception as e:
-                print(f"\nSQL can not be parsed ({example['nt']})! \n {sql}")
-            # print('\nAA', sql, '\n', sql_label, '\n')
+        count = 0
+        for jj, example in enumerate(self.raw_examples):
 
-            if parsable:
-                col_names = [[0, '*'],]
-                for idx, name in enumerate(column_names):
-                    col_names.append([idx+1, name.replace("_", " ")])
-                table_spider['column_names'] = col_names
-                table_spider['table_names'] = ['w']
-                table_spider['db_id'] = tbl
-                table_spider['foreign_keys'] = None
-                table_spider['primary_keys'] = None
-
-                item = spider.SpiderItem(
-                    text=example["question"],
-                    code=sql_label,
-                    schema=schema,
-                    orig={
-                        'question': example["question"],
-                    },
-                    orig_schema=table_spider)
+            if example['nt'] in ['nt-6989', 'nt-4316']:
+                # skip these questions which have only 1 case but case complex structure change
                 
-                sqlite_path = f"{db_path}/{tbl}.db"
-                source: sqlite3.Connection
-                with sqlite3.connect(str(sqlite_path)) as source:
-                    dest = sqlite3.connect(':memory:')
-                    dest.row_factory = sqlite3.Row
-                    source.backup(dest)
-                item.schema.connection = dest
+                # nt-6989
+                # select ( select ( ______ ) = ( ______ ) ) and ( select ( ______ ) = ( ______ ) )
+                
+                # nt-4316
+                # select c4 from w group by c4 order by count ( c5_number1 > c5_number2 ) desc limit 1
+                continue
 
-                self.examples.append(item)
+            count += 1
+            # print('count ', count)
+            if example['nt'] != 'n':
+            # if example['nt'] == 'nt-13348':
+                # only 1 table in squall
+                self.total_num_examples += 1
+                tbl = example["tables"][0]
+                tables = (spider.Table(
+                    id=0,
+                    name=['w'],
+                    unsplit_name='w',
+                    orig_name=tbl,
+                ),)
+                column_names = example["columns"]
+                column_types = example["column_types"]
+                orig_column_names = example["orig_columns"]
+                columns = tuple(
+                    spider.Column(
+                        id=i+1,
+                        table=tables[0],
+                        name=col_name.replace("_", " ").split(),
+                        unsplit_name=col_name.replace("_", " "),
+                        orig_name=orig_col_name,
+                        type=col_type,
+                    )
+                    for i, (col_name, col_type, orig_col_name) in enumerate(zip(
+                        column_names,
+                        column_types,
+                        orig_column_names
+                    ))
+                )
+                zero_column = (spider.Column(
+                    id = 0,
+                    table = tables[0],
+                    name = ['*'],
+                    unsplit_name = '*',
+                    orig_name = '*',
+                    type = 'text',
+                ),)
+                columns = zero_column + columns
+                # Link columns to tables
+                for column in columns:
+                    if column.table:
+                        column.table.columns.append(column) 
+                # No primary keys
+                # No foreign keys
+                foreign_key_graph = nx.DiGraph()
+                # Final argument: don't keep the original schema
+                schema = spider.Schema(tbl, tables, columns, foreign_key_graph, None)
+                
+                # convert the sql query format for the grammar
+                sql = example["sql"]
+                nt = example['nt']
+                table_spider = {'table_names_original':['w']}
+                table_spider['column_names_original'] = [[0, c] for c in orig_column_names]
+                table_spider['column_names_original'] = [[-1, '*']] + table_spider['column_names_original']
+                schema_spider = Schema_spider({'w':orig_column_names}, table_spider)
+                parsable = False
+                # sql = "select ( select c2 from w where c1_number = 2 ) not null"
+                # select c1 from w where c2 = '"girl"' intersect select c1 from w where c2 = '"e-pro"'
+                # if sql == "select count ( distinct ( c2 ) ) from w where c7 = 'win' and abs ( c6_number1 - c6_number2 ) > 3":
+                print('\n', jj, ' ', nt)
+                # print(table_spider['column_names_original'])
+                if 'present_ref' in sql:
+                    print(f'found wired keyword present_ref in {sql}')
+                    continue
+                if 'julianday' in sql:
+                    print(f'found wired keyword julianday in {sql}')
+                    continue
+                if 'length (' in sql:
+                    print(f'found wired keyword julianday in {sql}')
+                    continue
+                sql_label = get_sql_squall(schema_spider, sql, nt, debug=True)  # Attempt to run get_sql()
+                # assert 1==2
+                # try:
+                #     sql_label = get_sql(schema_spider, sql)  # Attempt to run get_sql()
+                #     parsable = True  # If get_sql() runs without error, set parsable to True
+                # except Exception as e:
+                #     # print(f"\nSQL can not be parsed ({example['nt']})! \n {sql}")
+                #     pass
 
-            if limit and len(self.total_num_examples) >= limit:
-                break
+                if parsable:
+                    col_names = [[0, '*'],]
+                    for idx, name in enumerate(column_names):
+                        col_names.append([idx+1, name.replace("_", " ")])
+                    table_spider['column_names'] = col_names
+                    table_spider['table_names'] = ['w']
+                    table_spider['db_id'] = tbl
+                    table_spider['foreign_keys'] = None
+                    table_spider['primary_keys'] = None
 
-            # print(item.schema.columns[0].orig_name)
-            # assert 1==2
+                    item = spider.SpiderItem(
+                        text=example["question"],
+                        code=sql_label,
+                        schema=schema,
+                        orig={
+                            'question': example["question"],
+                        },
+                        orig_schema=table_spider)
+                    
+                    sqlite_path = f"{db_path}/{tbl}.db"
+                    source: sqlite3.Connection
+                    with sqlite3.connect(str(sqlite_path)) as source:
+                        dest = sqlite3.connect(':memory:')
+                        dest.row_factory = sqlite3.Row
+                        source.backup(dest)
+                    item.schema.connection = dest
+
+                    self.examples.append(item)
+
+                if limit and len(self.total_num_examples) >= limit:
+                    break
+
+                # print(item.schema.columns[0].orig_name)
+                # assert 1==2
 
         print("total: ", self.total_num_examples, "parsable: ", len(self.examples))
         
@@ -245,8 +278,8 @@ class SquallDataset(torch.utils.data.Dataset):
 
 
 if __name__=="__main__":
-    preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall")
-    a = SquallDataset(path="/workspaces/rat-sql/data/squall/train1.json", db_path='/workspaces/rat-sql/data/squall/tables/db')
+    # preprocess_datasets(subset_name=1, save_dir="/workspaces/rat-sql/data/squall/rat-sql")
+    a = SquallDataset(path="/workspaces/rat-sql/data/squall/rat-sql/train1.json", db_path='/workspaces/rat-sql/data/squall/tables/db')
     # print(a.__getitem__(0).schema.tables[0].columns[0])
     # print("\n")
     # print(a.__getitem__(0).schema.tables[0].columns[1])

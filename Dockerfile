@@ -47,4 +47,6 @@ RUN /bin/bash -c 'if compgen -G "/app/**/*.sh" > /dev/null; then dos2unix /app/*
 # Extend PYTHONPATH to load WikiSQL dependencies
 ENV PYTHONPATH="/app/third_party/wikisql/:${PYTHONPATH}" 
 
+RUN pip install sqlparse
+
 ENTRYPOINT bash

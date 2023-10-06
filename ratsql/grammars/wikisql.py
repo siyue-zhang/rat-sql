@@ -21,7 +21,7 @@ def filter_nones(d):
     return {k: v for k, v in d.items() if v is not None and v != []}
 
 
-@registry.register('grammar', 'wikisql')
+# @registry.register('grammar', 'wikisql')
 class WikiSqlLanguage:
 
     root_type = 'select'
@@ -106,3 +106,8 @@ class WikiSqlLanguage:
     CMP_TYPES_F, CMP_TYPES_B = bimap(
         range(4),
         ('Equal', 'GreaterThan', 'LessThan', 'Other'))
+
+
+# if __name__=='__main__':
+#     w = WikiSqlLanguage()
+#     print(w.parse('select c1 from w', 1))

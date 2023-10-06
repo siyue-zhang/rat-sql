@@ -123,7 +123,7 @@ def load_tables(paths):
     return schemas, eval_foreign_key_maps
 
 
-# @registry.register('dataset', 'spider')
+@registry.register('dataset', 'spider')
 class SpiderDataset(torch.utils.data.Dataset):
     def __init__(self, paths, tables_paths, db_path, demo_path=None, limit=None):
         self.paths = paths

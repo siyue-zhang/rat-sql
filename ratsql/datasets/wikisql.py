@@ -55,7 +55,7 @@ def load_tables(paths):
     return schemas
 
 
-# @registry.register('dataset', 'wikisql')
+@registry.register('dataset', 'wikisql')
 class WikiSqlDataset(torch.utils.data.Dataset): 
     def __init__(self, paths, tables_paths, db_path, limit=None):
         self.paths = paths

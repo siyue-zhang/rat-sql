@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
 {
-	"name": "Existing Dockerfile",
+	"name": "RAT-SQL Dev",
 	"build": {
 		// Sets the run context to one level up instead of the .devcontainer folder.
 		"context": "..",
@@ -34,8 +34,8 @@
 		}
 	},
 	"mounts": [
-		"source=/home/siyue/Projects/tableQA_text_to_SQL/data,target=/workspaces/rat-sql/data,type=bind,consistency=cached",
-		"source=/home/siyue/Projects/tableQA_text_to_SQL/third_party,target=/workspaces/rat-sql/third_party,type=bind,consistency=cached"]
+		"source=/home/ali-siyue/Projects/tableQA_text_to_SQL/data,target=/workspaces/rat-sql/data,type=bind,consistency=cached",
+		"source=/home/ali-siyue/Projects/tableQA_text_to_SQL/third_party,target=/workspaces/rat-sql/third_party,type=bind,consistency=cached"]
 
 	// Uncomment the next line to run commands after the container is created.
 	// "postCreateCommand": "cat /etc/os-release",
