@@ -32,7 +32,7 @@ module Squall
              | DPlus(val val1, val val2)
              | DTimes(val val1, val val2)
              | DDivide(val val1, val val2)
-             | DAbsMinus(val val1, val val2)
+             -- | DAbsMinus(val val1, val val2)
 
     -- val_unit: (unit_op, col_unit1, val1)
     -- val_unit = (
@@ -54,12 +54,15 @@ module Squall
     table_unit = TableUnitSql(sql s)
                | Table(table table_id)
 
+    ncond = NAnd(ncond nleft, ncond nright)
+         | NOr(ncond nleft, ncond nright)
+
     -- condition: [cond_unit1, 'and'/'or', cond_unit2, ...]
     -- cond_unit: (not_op, op_id, val_unit, val1, val2)
     cond = And(cond left, cond right)
          | Or(cond left, cond right)
          | Not(cond c)
-         | Between(val_unit val_unit, val val1, val val2)
+         | Between(val_unit val_unit, dual_val dual_val1, dual_val dual_val2)
          -- ADD: change to new value type for "where id = ( select id from w where c3 = 'chicago rush' ) + 1"
          | Eq(val_unit val_unit, dual_val dual_val1)
          | Gt(val_unit val_unit, dual_val dual_val1)
@@ -69,7 +72,7 @@ module Squall
          | Ne(val_unit val_unit, dual_val dual_val1)
          -- ADD: change to multiple values for "where c3 in ( 'university of witwatersrand' , 'iit guwahati' )"
          | In(val_unit val_unit, val* vals)
-         | Like(val_unit val_unit, val val1)
+         | Like(val_unit val_unit, dual_val dual_val1)
          -- ADD: condition "where c3 not null"
          | Notnull(val_unit val_unit)
          -- ADD: condition "where c7_number is null"
@@ -107,7 +110,19 @@ module Squall
     -- ADD: for "select (select) > (select/number)"
     --          "select (select) + (select/number)"
     query = Single(val val1)
-        | Double(val val1, val val2)
+        | QMinus(val val1, val val2)
+        | QPlus(val val1, val val2)
+        | QGT(val val1, val val2)
+        | QST(val val1, val val2)        
+        | QGE(val val1, val val2)
+        | QSE(val val1, val val2)
+        | QNE(val val1, val val2)
+        | QE(val val1, val val2)
+        | QNOTNULL(val val1)
+        | QISNULL(val val11)
+        | QABS(val val1, val val2)
+        | QMIN(val val1, val val2)
+        | QMAX(val val1, val val2)
 
     --   'select': (isDistinct(bool), [(agg_id, val_unit), (agg_id, val_unit), ...])
     select = (singleton is_distinct, agg* aggs)

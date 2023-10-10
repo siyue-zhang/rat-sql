@@ -200,6 +200,7 @@ class ASTWrapper(object):
 
             else:
                 raise ValueError(f'Unexpected type in ASDL: {sum_product}')
+        print('\nCHECK NODE: ', node)
 
         if node_type in self.types:
             # Either a product or a sum type; we want it to be a product type
@@ -212,13 +213,17 @@ class ASTWrapper(object):
         else:
             raise ValueError(f'Unknown node_type {node_type}. path: {field_path}')
 
+        print('start', fields_to_check)
         for field in fields_to_check:
+            print('all ', fields_to_check)
+            print('now ', field, field.name)
             # field.opt:
             # - missing is okay
             # field.seq
             # - missing is okay
             # - otherwise, must be list
             if field.name not in node:
+                print("CHECKCC", 'val1' in node, 'dual_val1' in node, 'dual_val2' in node)
                 if field.opt or field.seq:
                     continue
                 raise ValueError(f'required field {field.name} is missing. path: {field_path}')
@@ -241,6 +246,8 @@ class ASTWrapper(object):
 
             for item in items:
                 assert check(item)
+            
+            print("for end")
         return True
 
     def find_all_descendants_of_type(self, tree, type, descend_pred=lambda field: True):

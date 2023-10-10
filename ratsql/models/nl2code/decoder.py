@@ -109,7 +109,9 @@ class NL2CodeDecoderPreproc(abstract_preproc.AbstractPreproc):
 
     def validate_item(self, item, section):
         parsed = self.grammar.parse(item.code, section)
+        print('\nITEM', item.text, '\n', item.code, '\n')
         if parsed:
+            print('PARSED: ', parsed)
             try:
                 self.ast_wrapper.verify_ast(parsed)
             except AssertionError:

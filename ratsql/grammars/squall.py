@@ -128,6 +128,7 @@ class SquallLanguage:
         return [field_value_str]
 
     def parse_val(self, val):
+        print('current val: ', val)
         if isinstance(val, str):
             if not self.include_literals:
                 return {'_type': 'Terminal'}
@@ -141,7 +142,7 @@ class SquallLanguage:
                     '_type': 'String',
                     's': val,
                 }
-        elif isinstance(val, list):
+        elif isinstance(val, list) or isinstance(val, tuple):
             return {
                 '_type': 'ColUnit',
                 'c': self.parse_col_unit(val),
@@ -173,13 +174,13 @@ class SquallLanguage:
         return result
 
     def parse_val_unit(self, val_unit):
-        unit_op, col_unit1, col_unit2 = val_unit
+        unit_op, col_unit1, val1 = val_unit
         result = {
             '_type': self.UNIT_TYPES_F[unit_op],
             'col_unit1': self.parse_col_unit(col_unit1),
         }
         if unit_op != 0:
-            result['col_unit2'] = self.parse_col_unit(col_unit2)
+            result['val1'] = self.parse_val(val1)
         return result
 
     def parse_table_unit(self, table_unit):
@@ -197,8 +198,8 @@ class SquallLanguage:
         else:
             raise ValueError(table_type)
 
-    def parse_cond(self, cond, optional=False):
-        if optional and not cond:
+    def parse_cond(self, cond):
+        if cond==None or len(cond)==0:
             return None
 
         if len(cond) > 1:
@@ -209,18 +210,21 @@ class SquallLanguage:
             }
 
         (not_op, op_id, val_unit, dual_val1, dual_val2, vals), = cond
+        # 'Between', 'Eq', 'Gt', 'Lt', 'Ge', 'Le', 'Ne', 'In', 'Like', 'Is', 'Notnull', 'Isnull'
+        _type = self.COND_TYPES_F[op_id]
         result = {
-            '_type': self.COND_TYPES_F[op_id],
-            'val_unit': self.parse_val_unit(val_unit),
-            'val1': self.parse_dual_val(dual_val1),
-        }
-        if op_id == 1:  # between
-            result['val2'] = self.parse_dual_val(dual_val2)
-        if op_id == 8: # in
-            result['vals'] =  {
-                '_type': 'Vals',
-                'vals': [self.parse_val(v) for v in vals],
-            }
+            '_type': _type,
+            'val_unit': self.parse_val_unit(val_unit),}
+        if _type == 'Between':
+            result['dual_val1'] = self.parse_dual_val(dual_val1)
+            result['dual_val2'] = self.parse_dual_val(dual_val2)
+        elif _type == 'In':
+            result['vals'] = [self.parse_val(v) for v in vals]
+        elif _type in ['Notnull', 'Isnull']:
+            pass
+        else:
+            result['dual_val1'] = self.parse_dual_val(dual_val1)
+            
         if not_op:
             result = {
                 '_type': 'Not',
@@ -234,42 +238,47 @@ class SquallLanguage:
         result = {
             '_type': self.DUAL_VAL_OPERATORS_F[unit_op],
             'val1': self.parse_val(val1),
-            'val2': self.parse_val(val2),
         }
+        if unit_op==0:
+            assert val2==None
+        if val2:
+            result['val2'] = self.parse_val(val2)
         return result
 
-    def parse_nested_cond(self, conds):
-
-        if len(conds)>1:
+    def parse_nested_cond(self, nested_conds):
+        print('nested conds: ', nested_conds, len(nested_conds))
+        if len(nested_conds)==0:
+            return None
+        
+        if len(nested_conds)>1:
             return {
-                '_type': self.LOGIC_OPERATORS_F[conds[1]],
-                'left': self.parse_nested_cond(conds[:1]),
-                'right': self.parse_nested_cond(conds[2:]),
+                '_type': self.LOGIC_OPERATORS_NEST_F[nested_conds[1]],
+                'nleft': self.parse_nested_cond(nested_conds[:1]),
+                'nright': self.parse_nested_cond(nested_conds[2:]),
             }
-        (cond1, op_id, cond2), = conds
-        result = {
-            '_type': self.LOGIC_OPERATORS_F[op_id],
-            'cond1': self.parse_cond(cond1),
-            'cond2': self.parse_cond(cond2),
-        }
+        
+        print('nested_conds:', nested_conds)
+        conds = nested_conds[0]
+        result = self.parse_cond(conds)
+        print('parse cond result: ', result)
         return result
 
 
-    def parse_sql(self, sql, optional=False):
-        if optional and sql is None:
+    def parse_sql(self, sql):
+        if sql is None:
             return None
         
         return filter_nones({
             '_type': 'sql',
             'select': self.parse_select(sql['select']),
-            'where': self.parse_nested_cond(sql['where'], optional=True), # 
+            'where': self.parse_nested_cond(sql['where']), # 
             'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
             'order_by': self.parse_order_by(sql['orderBy']),
-            'having': self.parse_cond(sql['having'], optional=True),
+            'having': self.parse_cond(sql['having']),
             'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
-            'intersect': self.parse_sql(sql['intersect'], optional=True),
-            'except': self.parse_sql(sql['except'], optional=True),
-            'union': self.parse_sql(sql['union'], optional=True),
+            'intersect': self.parse_sql(sql['intersect']),
+            'except': self.parse_sql(sql['except']),
+            'union': self.parse_sql(sql['union']),
             **({
                     'from': self.parse_from(sql['from'], self.infer_from_conditions),
                 } if self.output_from else {})
@@ -296,7 +305,7 @@ class SquallLanguage:
             '_type': 'from',
             'table_units': [
                 self.parse_table_unit(u) for u in from_['table_units']],
-            'conds': self.parse_cond(from_['conds'], optional=True) \
+            'conds': self.parse_cond(from_['conds']) \
                 if not infer_from_conditions else None,
         })
 
@@ -313,24 +322,25 @@ class SquallLanguage:
 
     def parse_sql_query(self, query):
         print('len query: ', len(query))
+        print('check query: ', query, '\n')
         query_op, val1, val2 = query
-        print('val1: ', val1)
-        return filter_nones({
-            '_type': self.QUERY_OPERATORS_F[query_op],
-            'val1': self.parse_val(val1),
-            'val2':  self.parse_val(val2),
-        })
+        result = {
+                '_type': self.QUERY_OPERATORS_F[query_op],
+                'val1': self.parse_val(val1)}
+        if val2:
+            result['val2'] = self.parse_val(val2)
+        return result
 
     COND_TYPES_F, COND_TYPES_B = bimap(
         # ('not', 'between', '=', '>', '<', '>=', '<=', '!=', 'in', 'like', 'is', 'exists', 'notnull', 'isnull'),
         # (None, 'Between', 'Eq', 'Gt', 'Lt', 'Ge', 'Le', 'Ne', 'In', 'Like', 'Is', 'Exists', 'Notnull', 'Isnull'))
-        range(1, 13),
-        ('Between', 'Eq', 'Gt', 'Lt', 'Ge', 'Le', 'Ne', 'In', 'Like', 'Is', 'Notnull', 'Isnull'))
+        range(1, 14),
+        ('Between', 'Eq', 'Gt', 'Lt', 'Ge', 'Le', 'Ne', 'In', 'Like', 'Is', 'Exists', 'Notnull', 'Isnull'))
 
     UNIT_TYPES_F, UNIT_TYPES_B = bimap(
         # ('none', '-', '+', '*', '/', 'abs', 'sum'),
         range(7),
-        ('Column', 'Minus', 'Plus', 'Times', 'Divide', 'Abs', 'Sum'))
+        ('Column', 'Minus', 'Plus', 'Times', 'Divide', 'AbsMinus', 'SumMinus'))
 
     AGG_TYPES_F, AGG_TYPES_B = bimap(
         range(8),
@@ -346,12 +356,18 @@ class SquallLanguage:
     
     # new
     DUAL_VAL_OPERATORS_F, DUAL_VAL_OPERATORS_B = bimap(
-        range(1,9),
-        ('-', '+', "*", '/', '>', '<', '>=','<='))
+        range(5),
+        # ('none', '-', '+', "*", '/', '>', '<', '>=','<='))
+        ('DValue', 'DMinus', 'DPlus', "DTimes", 'DDivide'))
 
     QUERY_OPERATORS_F, QUERY_OPERATORS_B = bimap(
-        range(1,16),
-        ('-', '+', "*", '/', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min', 'max'))
+        range(14),
+        # ('none', '-', '+', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min', 'max'))
+        ('Single', 'QMinus', 'QPlus', 'QGT', 'QST', 'QGE','QSE', 'QNE', 'QE', 'QNOTNULL', 'QISNULL', 'QABS', 'QMIN', 'QMAX'))
+
+    LOGIC_OPERATORS_NEST_F, LOGIC_OPERATORS_NEST_B = bimap(
+        ('and', 'or'),
+        ('NAnd', 'NOr'))
 
 @attr.s
 class SquallUnparser:

@@ -47,8 +47,10 @@ COND_OPS = ('and', 'or')
 SQL_OPS = ('intersect', 'union', 'except')
 ORDER_OPS = ('desc', 'asc')
 
-DUAL_VAL_OPS = ('none','-', '+', "*", '/', '>', '<', '>=','<=')
-QUERY_OPS = ('none','-', '+', "*", '/', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min')
+# DUAL_VAL_OPS = ('none','-', '+', "*", '/', '>', '<', '>=','<=')
+DUAL_VAL_OPS = ('none','-', '+', "*", '/')
+# QUERY_OPS = ('none','-', '+', "*", '/', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min')
+QUERY_OPS = ('none','-', '+', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min', 'max')
 
 class Schema:
     """
@@ -330,7 +332,7 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         idx += 1
 
     col_unit1 = None
-    val2 = None
+    val1 = None
     unit_op = UNIT_OPS.index('none')
     if debug:
         print('before col unit ', idx, toks[idx])
@@ -347,7 +349,7 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
             unit_op = UNIT_OPS.index(toks[idx])
         idx += 1
         # idx, col_unit2 = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables)
-        idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
 
     if isAbs:
         assert toks[idx] == ')'
@@ -361,7 +363,7 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         assert toks[idx] == ')'
         idx += 1  # skip ')'
 
-    return idx, (unit_op, col_unit1, val2)
+    return idx, (unit_op, col_unit1, val1)
 
 
 def parse_table_unit(toks, start_idx, tables_with_alias, schema):
