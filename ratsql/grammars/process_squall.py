@@ -921,6 +921,11 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         print('rewriting8 ', sql_string)
         sql_string = f"select present_ref {toks[2]} ( select {' '.join(toks[3:])} )"
         toks = tokenize(sql_string)
+    # (9)
+    if nt == 'nt-2116':
+        print('rewriting9 ', sql_string)
+        sql_string = f"select ( select c1_number from w where c5 = 'first danish sound film' ) - ( select min ( c1_number ) from w ) "
+        toks = tokenize(sql_string)
 
     # replace sub query in the bracket by underscore
     toks_template = toks.copy()
