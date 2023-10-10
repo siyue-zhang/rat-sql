@@ -22,6 +22,9 @@ from third_party.spider.process_sql import *
 from ratsql.grammars.process_squall import get_sql as get_sql_squall
 from third_party.spider.preprocess.parse_sql_one import Schema as Schema_spider
 
+from data.squall.model.evaluator import Evaluator
+
+
 def preprocess_datasets(subset_name, save_dir, limit=None):
     subset_name = str(subset_name)
     raw_dataset = load_dataset("siyue/squall", subset_name)
@@ -239,45 +242,76 @@ class SquallDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.examples[idx]
 
-    # class Metrics:
-    #     def __init__(self, dataset):
-    #       self.dataset = dataset
-    #       self.db_engine = dbengine.DBEngine(dataset.db_path)
+    class Metrics:
+        def __init__(self):
+            self.lf_match = []
+            self.exec_match = []
+            self.results = []
 
-    #       self.lf_match = []
-    #       self.exec_match = []
+            self.evaluator = Evaluator(
+                    f"/workspaces/picard/data/squall/tables/tagged/",
+                    f"/workspaces/picard/data/squall/tables/db/",
+                    f"/workspaces/picard/Third_party/stanford-corenlp-full-2018-10-05/"
+            )
 
-    #     def _evaluate_one(self, item, inferred_code):
-    #         gold_query = query.Query.from_dict(item.code, ordered=False)
-    #         gold_result = self.db_engine.execute_query(item.schema.db_id, gold_query, lower=True)
+        def _postprocess_one(self, inferred_code, item):
+            # preds and labels for all eval samples
+            # prepare the prediction format for the wtq evaluator
+            post_predictions = []
+            table_id = item['db_id']
+            nt_id = item['nt']
+            header = item['header']
+            # repalce the natural language header with c1, c2, ... headers
+            for j, h in enumerate(header):
+                inferred_code = inferred_code.replace(h, 'c'+str(j+1))
+            result_dict = {"sql": inferred_code, "id": nt_id, "tgt": item['query']}
+            res = {"table_id": table_id, "result": [result_dict]}
+            post_predictions.append(res)
+                
+            return post_predictions
 
-    #         pred_query = None
-    #         pred_result = None
-    #         try:
-    #             pred_query = query.Query.from_dict(inferred_code, ordered=False)
-    #             pred_result = self.db_engine.execute_query(item.schema.db_id, pred_query, lower=True)
-    #         except:
-    #             # TODO: Use a less broad exception specifier
-    #             pass
+        def _evaluate_one(self, item, inferred_code):
 
-    #         lf_match = gold_query == pred_query
-    #         exec_match = gold_result == pred_result
+            inferred_code = self._postprocess_one(inferred_code, item)
+            ex_accu, correct_flag = self.evaluator.evaluate(inferred_code, with_correct_flag=True)
+            
+            assert len(correct_flag)==1
+            lf_accu = 0
+            for d in inferred_code:
+                if d['result'][0]['sql'] == d['result'][0]['tgt']:
+                    lf_accu += 1
 
-    #         return lf_match, exec_match
+            lf_match = lf_accu == 1
+            exec_match = ex_accu == 1
 
-    #     def add(self, item, inferred_code, orig_question=None):
-    #         lf_match, exec_match = self._evaluate_one(item, inferred_code)
-    #         self.lf_match.append(lf_match)
-    #         self.exec_match.append(exec_match)
+            return lf_match, exec_match
 
-    #     def finalize(self):
-    #         mean_exec_match = float(np.mean(self.exec_match))
-    #         mean_lf_match = float(np.mean(self.lf_match))
+        def add(self, item, inferred_code):
+            print("CHECK ITEM")
+            print(item)
+            lf_match, exec_match = self._evaluate_one(item, inferred_code)
+            self.lf_match.append(lf_match)
+            self.exec_match.append(exec_match)
 
-            # return {
-            #     'per_item': [{'ex': ex, 'lf': lf} for ex, lf in zip(self.exec_match, self.lf_match)],
-            #     'total_scores': {'ex': mean_exec_match, 'lf': mean_lf_match},
-            # }
+        def add_beams(self, item, inferred_codes, orig_question=None):
+            beam_dict = {}
+            if orig_question:
+                beam_dict["orig_question"] = orig_question
+            for i, code in enumerate(inferred_codes):
+                lf_match, exec_match = self._evaluate_one(item, code)
+                beam_dict[i] = {"logic": lf_match, "exact": exec_match}
+                if exec_match is True:
+                    break
+            self.results.append(beam_dict)
+ 
+        def finalize(self):
+            mean_exec_match = float(np.mean(self.exec_match))
+            mean_lf_match = float(np.mean(self.lf_match))
+
+            return {
+                'per_item': [{'ex': ex, 'lf': lf} for ex, lf in zip(self.exec_match, self.lf_match)],
+                'total_scores': {'ex': mean_exec_match, 'lf': mean_lf_match},
+            }
 
 
 if __name__=="__main__":
