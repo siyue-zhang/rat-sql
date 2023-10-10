@@ -392,8 +392,8 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None,
         idx += 1
 
     if toks[idx] == 'select':
-        idx, val = parse_sql(toks, idx, tables_with_alias, schema, debug=True)
-        print('after parse sql: ', idx, 'total: ', len_)
+        idx, val = parse_sql(toks, idx, tables_with_alias, schema, debug=debug)
+        # print('after parse sql: ', idx, 'total: ', len_)
     elif toks[idx] == 'present_ref':
         val = 'present_ref'
         idx += 1
@@ -938,8 +938,8 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         else:
             i+=1
     toks_template_string = ' '.join(toks_template).strip()
-    print(sql_string)
-    print(toks_template_string)
+    # print(sql_string)
+    # print(toks_template_string)
 
     # identify different query structures
     pattern1 = r'(select )(.*)(\( [ _]{1,} \))( .{1,} )(\( [ _]{1,}? \))(.*)'
@@ -980,8 +980,8 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         if 'abs' in prefix or 'min' in prefix:
             assert ')' in suffix
 
-        val1 = parse_value(tokenize(sql1), 0, tables_with_alias, schema, debug=debug)
-        val2 = parse_value(tokenize(sql2), 0, tables_with_alias, schema, debug=debug)
+        _, val1 = parse_value(tokenize(sql1), 0, tables_with_alias, schema, debug=debug)
+        _, val2 = parse_value(tokenize(sql2), 0, tables_with_alias, schema, debug=debug)
      
         if query_op=='-' and 'abs' in prefix:
             query_op = QUERY_OPS.index('abs')
@@ -1003,25 +1003,25 @@ def parse_sql_query(toks, start_idx, tables_with_alias, schema, nt, debug=False)
         else:
             query_op = QUERY_OPS.index(toks[-2])
             _, val2 = parse_value(toks, len(toks)-1, tables_with_alias, schema, default_tables=None)
-        val1 = parse_value(toks[2:-3], 0, tables_with_alias, schema)
+        _, val1 = parse_value(toks[2:-3], 0, tables_with_alias, schema)
 
     elif search3 or exception3:
         if exception3:
             search3 = exception3
         assert len(search3)==1
         print('match 3')
-        val1 = parse_value(tokenize(toks[1]), 0, tables_with_alias, schema)
+        _, val1 = parse_value(tokenize(toks[1]), 0, tables_with_alias, schema)
         query_op = QUERY_OPS.index(toks[2])
-        val2 = parse_value(toks[3:], 0, tables_with_alias, schema)
+        _, val2 = parse_value(toks[3:], 0, tables_with_alias, schema)
 
     elif 'from' not in toks:
         print('match 4')
         # select 2015 - 1912
         assert toks[0]=='select'
         _, val1, query_op, val2 = toks
-        val1 = parse_value(tokenize(val1), 0, tables_with_alias, schema)
+        _, val1 = parse_value(tokenize(val1), 0, tables_with_alias, schema)
         query_op = QUERY_OPS.index(query_op)
-        val2 = parse_value(tokenize(val2), 0, tables_with_alias, schema)
+        _, val2 = parse_value(tokenize(val2), 0, tables_with_alias, schema)
 
     else:
         print('match 5')

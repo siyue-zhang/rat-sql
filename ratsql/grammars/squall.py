@@ -34,7 +34,7 @@ def intersperse(delimiter, seq):
 
 
 @registry.register('grammar', 'squall')
-class SpiderLanguage:
+class SquallLanguage:
     root_type = 'sql'
 
     def __init__(
@@ -60,7 +60,6 @@ class SpiderLanguage:
             self.pointers.add('column')
 
         # create ast wrapper
-        self.factorize_sketch = factorize_sketch
         asdl_file = "Squall.asdl"
         self.ast_wrapper = ast_util.ASTWrapper(
             asdl.parse(
@@ -78,10 +77,7 @@ class SpiderLanguage:
         # literals of limit field
         self.include_literals = include_literals
         if not self.include_literals:
-            if self.factorize_sketch == 0:
-                limit_field = self.ast_wrapper.singular_types['sql'].fields[6]
-            else:
-                limit_field = self.ast_wrapper.singular_types['sql_orderby'].fields[1]
+            limit_field = self.ast_wrapper.singular_types['sql'].fields[6]
             assert limit_field.name == 'limit'
             limit_field.opt = False
             limit_field.type = 'singleton'
@@ -111,10 +107,11 @@ class SpiderLanguage:
                     del sql_fields[1]
 
     def parse(self, code, section):
-        return self.parse_sql(code)
+        print('code to parse: ', code)
+        return self.parse_sql_query(code)
 
     def unparse(self, tree, item):
-        unparser = SpiderUnparser(self.ast_wrapper, item.schema, self.factorize_sketch)
+        unparser = SquallUnparser(self.ast_wrapper, item.schema, self.factorize_sketch)
         return unparser.unparse_sql(tree)
 
     @classmethod
@@ -315,10 +312,11 @@ class SpiderLanguage:
         }
 
     def parse_sql_query(self, query):
-        (query_op, val1, val2) = query
-
+        print('len query: ', len(query))
+        query_op, val1, val2 = query
+        print('val1: ', val1)
         return filter_nones({
-            '_type': self.QUERY_OPERATORS_F(query_op),
+            '_type': self.QUERY_OPERATORS_F[query_op],
             'val1': self.parse_val(val1),
             'val2':  self.parse_val(val2),
         })
@@ -353,11 +351,10 @@ class SpiderLanguage:
 
     QUERY_OPERATORS_F, QUERY_OPERATORS_B = bimap(
         range(1,16),
-        '-', '+', "*", '/', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min', 'max'
-    )
+        ('-', '+', "*", '/', '>', '<', '>=','<=', '!=', '=', 'notnull', 'isnull', 'abs', 'min', 'max'))
 
 @attr.s
-class SpiderUnparser:
+class SquallUnparser:
     ast_wrapper = attr.ib()
     schema = attr.ib()
     factorize_sketch = attr.ib(default=0)

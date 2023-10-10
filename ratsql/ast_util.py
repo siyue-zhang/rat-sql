@@ -32,6 +32,7 @@ class ASTWrapperVisitor(asdl.VisitorBase):
 
     def visitType(self, type_):
         # type: (asdl.Type) -> None
+        print('visit ', type_)
         self.visit(type_.value, str(type_.name))
 
     def visitSum(self, sum_, name):
@@ -84,6 +85,7 @@ class ASTWrapper(object):
         self.ast_def = ast_def
 
         visitor = ASTWrapperVisitor()
+        print('ast_def: ', ast_def)
         visitor.visit(ast_def)
 
         self.constructors = visitor.constructors

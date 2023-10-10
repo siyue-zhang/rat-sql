@@ -10,7 +10,7 @@ module Squall
         | String(string s)
         | ValSql(sql s)
         | ColUnit(col_unit c)
-        | Present_ref
+        | Present_ref(string s)
         | Terminal
 
     -- col_unit: (agg_id, col_id, isDistinct(bool))
@@ -20,20 +20,6 @@ module Squall
       singleton is_distinct,
     )
 
-    -- val_unit: (unit_op, col_unit1, col_unit2)
-    -- val_unit = (
-    --     unit_type unit_op,
-    --     col_unit col_unit1,
-    --     col_unit col_unit2
-    -- )
-    val_unit = Column(col_unit col_unit1)
-             | Minus(col_unit col_unit1, val val2)
-             | Plus(col_unit col_unit1, val val2)
-             | Times(col_unit col_unit1, val val2)
-             | Divide(col_unit col_unit1, val val2)
-             -- ADD: change to include "select abs ( c3_number - c5_number )"
-             | AbsMinus(col_unit col_unit1, val val2)
-             | SumMinus(col_unit col_unit1, val val2)
     -- ADD: new type of two values
     -- dual_val: (unit_op, val1, val2)
     -- dual_val = (
@@ -41,12 +27,28 @@ module Squall
     --     val val1,
     --     val val2
     -- )
-    dual_val = Value(val val1)
-             | Minus(val val1, val val2)
-             | Plus(val val1, val val2)
-             | Times(val val1, val val2)
-             | Divide(val val1, val val2)
-             | AbsMinus(val val1, val val2)
+    dual_val = DValue(val val1)
+             | DMinus(val val1, val val2)
+             | DPlus(val val1, val val2)
+             | DTimes(val val1, val val2)
+             | DDivide(val val1, val val2)
+             | DAbsMinus(val val1, val val2)
+
+    -- val_unit: (unit_op, col_unit1, val1)
+    -- val_unit = (
+    --     unit_type unit_op,
+    --     col_unit col_unit1,
+    --     val val1
+    -- )
+    val_unit = Column(col_unit col_unit1) 
+               | Minus(col_unit col_unit1, val val1)
+               | Plus(col_unit col_unit1, val val1)
+               | Times(col_unit col_unit1, val val1)
+               | Divide(col_unit col_unit1, val val1)
+               -- ADD: change to include "select abs ( c3_number - c5_number )"
+               | AbsMinus(col_unit col_unit1, val val1)
+               | SumMinus(col_unit col_unit1, val val1)
+
 
     -- table_unit: (table_type, col_unit/sql)
     table_unit = TableUnitSql(sql s)
@@ -73,7 +75,7 @@ module Squall
          -- ADD: condition "where c7_number is null"
          | Isnull(val_unit val_unit)
          -- These don't ever appear in the dataset
-         -- | Is(val_unit val_unit, val val1)
+         | Is(val_unit val_unit, dual_val dual_val1)
          -- | Exists(val_unit val_unit, val val1)
          -- | CondUnit(singleton not_op, cond_op op_id, val_unit val_unit, val val1, val val2)
 

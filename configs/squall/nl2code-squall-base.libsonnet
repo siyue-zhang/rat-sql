@@ -20,12 +20,12 @@ function(output_from, data_path='data/squall/') {
     data: {
         train: {
             name: 'squall', 
-            path: PREFIX + 'train%s.json' % SUBSET,
+            path: PREFIX + 'rat-sql/train%s.json' % SUBSET,
             db_path: PREFIX + 'tables/db',
         },
         val: {
             name: 'squall', 
-            path: PREFIX + 'validation%s.json' % SUBSET,
+            path: PREFIX + 'rat-sql/validation%s.json' % SUBSET,
             db_path: PREFIX + 'tables/db',
         },
     },
@@ -64,7 +64,7 @@ function(output_from, data_path='data/squall/') {
         },
         decoder_preproc: self.encoder_preproc {
             grammar: {
-                name: 'spider',
+                name: 'squall',
                 output_from: output_from,
                 use_table_pointer: output_from,
                 include_literals: false,

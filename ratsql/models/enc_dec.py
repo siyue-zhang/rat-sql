@@ -28,7 +28,6 @@ class EncDecModel(torch.nn.Module):
                 encoder_preproc,
                 decoder_preproc):
             super().__init__()
-
             self.enc_preproc = registry.lookup('encoder', encoder['name']).Preproc(**encoder_preproc)
             self.dec_preproc = registry.lookup('decoder', decoder['name']).Preproc(**decoder_preproc)
         

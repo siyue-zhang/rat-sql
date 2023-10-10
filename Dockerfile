@@ -48,5 +48,9 @@ RUN /bin/bash -c 'if compgen -G "/app/**/*.sh" > /dev/null; then dos2unix /app/*
 ENV PYTHONPATH="/app/third_party/wikisql/:${PYTHONPATH}" 
 
 RUN pip install sqlparse
+# Additional for wtq evaluator
+RUN pip install stanfordnlp
+RUN apt-get update -y \
+    && apt-get install -y nodejs npm
 
 ENTRYPOINT bash

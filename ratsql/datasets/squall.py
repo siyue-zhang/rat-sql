@@ -96,7 +96,7 @@ def preprocess_datasets(subset_name, save_dir, limit=None):
 
     return
 
-# @registry.register('dataset', 'squall')
+@registry.register('dataset', 'squall')
 class SquallDataset(torch.utils.data.Dataset): 
     def __init__(self, path, db_path, limit=None, save_json=False):
         self.raw_examples = json.load(open(path))
@@ -165,13 +165,13 @@ class SquallDataset(torch.utils.data.Dataset):
                 
                 # convert the sql query format for the grammar
                 sql = example["sql"]
-                print(sql)
+                # print(sql)
                 nt = example['nt']
                 table_spider = {'table_names_original':['w']}
                 table_spider['column_names_original'] = [[0, c] for c in orig_column_names]
                 table_spider['column_names_original'] = [[-1, '*']] + table_spider['column_names_original']
                 schema_spider = Schema_spider({'w':orig_column_names}, table_spider)
-                parsable = False
+                # parsable = False
                 # sql = "select ( select c2 from w where c1_number = 2 ) not null"
                 # select c1 from w where c2 = '"girl"' intersect select c1 from w where c2 = '"e-pro"'
                 # if sql == "select count ( distinct ( c2 ) ) from w where c7 = 'win' and abs ( c6_number1 - c6_number2 ) > 3":
@@ -186,7 +186,7 @@ class SquallDataset(torch.utils.data.Dataset):
                 # if 'length (' in sql:
                 #     print(f'found wired keyword julianday in {sql}')
                 #     continue
-                sql_label = get_sql_squall(schema_spider, sql, nt, debug=True)  # Attempt to run get_sql()
+                sql_label = get_sql_squall(schema_spider, sql, nt, debug=False)  # Attempt to run get_sql()
                 self.save[nt] = {'sql': sql, 'parsed': sql_label}
                 # assert 1==2
                 # try:
@@ -196,44 +196,42 @@ class SquallDataset(torch.utils.data.Dataset):
                 #     # print(f"\nSQL can not be parsed ({example['nt']})! \n {sql}")
                 #     pass
 
-                if parsable:
-                    col_names = [[0, '*'],]
-                    for idx, name in enumerate(column_names):
-                        col_names.append([idx+1, name.replace("_", " ")])
-                    table_spider['column_names'] = col_names
-                    table_spider['table_names'] = ['w']
-                    table_spider['db_id'] = tbl
-                    table_spider['foreign_keys'] = None
-                    table_spider['primary_keys'] = None
+                # if parsable:
+                col_names = [[0, '*'],]
+                for idx, name in enumerate(column_names):
+                    col_names.append([idx+1, name.replace("_", " ")])
+                table_spider['column_names'] = col_names
+                table_spider['table_names'] = ['w']
+                table_spider['db_id'] = tbl
+                table_spider['foreign_keys'] = None
+                table_spider['primary_keys'] = None
 
-                    item = spider.SpiderItem(
-                        text=example["question"],
-                        code=sql_label,
-                        schema=schema,
-                        orig={
-                            'question': example["question"],
-                        },
-                        orig_schema=table_spider)
-                    
-                    sqlite_path = f"{db_path}/{tbl}.db"
-                    source: sqlite3.Connection
-                    with sqlite3.connect(str(sqlite_path)) as source:
-                        dest = sqlite3.connect(':memory:')
-                        dest.row_factory = sqlite3.Row
-                        source.backup(dest)
-                    item.schema.connection = dest
+                item = spider.SpiderItem(
+                    text=example["question"],
+                    code=sql_label,
+                    schema=schema,
+                    orig={
+                        'question': example["question"],
+                    },
+                    orig_schema=table_spider)
+                
+                sqlite_path = f"{db_path}/{tbl}.db"
+                source: sqlite3.Connection
+                with sqlite3.connect(str(sqlite_path)) as source:
+                    dest = sqlite3.connect(':memory:')
+                    dest.row_factory = sqlite3.Row
+                    source.backup(dest)
+                item.schema.connection = dest
 
-                    self.examples.append(item)
+                self.examples.append(item)
 
-                if limit and len(self.total_num_examples) >= limit:
-                    break
-
-                # print(item.schema.columns[0].orig_name)
-                # assert 1==2
+            if limit and len(self.total_num_examples) >= limit:
+                break
 
         if save_json:
             with open('./data/squall/rat-sql/parsed_squall.json', "w") as json_file:
                 json.dump(self.save, json_file, indent=4)
+
         print("total: ", self.total_num_examples, "parsable: ", len(self.examples))
         
     def __len__(self):
@@ -249,9 +247,9 @@ class SquallDataset(torch.utils.data.Dataset):
             self.results = []
 
             self.evaluator = Evaluator(
-                    f"/workspaces/picard/data/squall/tables/tagged/",
-                    f"/workspaces/picard/data/squall/tables/db/",
-                    f"/workspaces/picard/Third_party/stanford-corenlp-full-2018-10-05/"
+                    f"/workspaces/rat-sql/data/squall/tables/tagged/",
+                    f"/workspaces/rat-sql/data/squall/tables/db/",
+                    f"/workspaces/third_party/stanford-corenlp-full-2018-10-05/"
             )
 
         def _postprocess_one(self, inferred_code, item):
