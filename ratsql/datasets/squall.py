@@ -98,7 +98,7 @@ def preprocess_datasets(subset_name, save_dir, limit=None):
 
 @registry.register('dataset', 'squall')
 class SquallDataset(torch.utils.data.Dataset): 
-    def __init__(self, path, db_path, limit=100, save_json=False):
+    def __init__(self, path, db_path, limit=2000, save_json=False):
         self.raw_examples = json.load(open(path))
         self.examples = []
         self.total_num_examples = 0

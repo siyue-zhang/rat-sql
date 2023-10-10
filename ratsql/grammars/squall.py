@@ -240,8 +240,8 @@ class SquallLanguage:
             'val1': self.parse_val(val1),
         }
         if unit_op==0:
-            assert val2==None
-        if val2:
+            assert val2 is None
+        if val2 is not None:
             result['val2'] = self.parse_val(val2)
         return result
 
@@ -257,10 +257,11 @@ class SquallLanguage:
                 'nright': self.parse_nested_cond(nested_conds[2:]),
             }
         
-        print('nested_conds:', nested_conds)
-        conds = nested_conds[0]
-        result = self.parse_cond(conds)
-        print('parse cond result: ', result)
+        result = {
+            '_type': 'Cond',
+            'conds': self.parse_cond(nested_conds[0]),
+        }
+
         return result
 
 
@@ -327,7 +328,7 @@ class SquallLanguage:
         result = {
                 '_type': self.QUERY_OPERATORS_F[query_op],
                 'val1': self.parse_val(val1)}
-        if val2:
+        if val2 is not None:  # careful about 0
             result['val2'] = self.parse_val(val2)
         return result
 
@@ -366,8 +367,8 @@ class SquallLanguage:
         ('Single', 'QMinus', 'QPlus', 'QGT', 'QST', 'QGE','QSE', 'QNE', 'QE', 'QNOTNULL', 'QISNULL', 'QABS', 'QMIN', 'QMAX'))
 
     LOGIC_OPERATORS_NEST_F, LOGIC_OPERATORS_NEST_B = bimap(
-        ('and', 'or'),
-        ('NAnd', 'NOr'))
+        range(3),
+        ('Cond', 'NAnd', 'NOr'))
 
 @attr.s
 class SquallUnparser:

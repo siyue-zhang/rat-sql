@@ -184,6 +184,7 @@ class ASTWrapper(object):
 
         node_type = node['_type']  # type: str
         if expected_type is not None:
+            print('expected type: ', expected_type, 'node type: ', node_type)
             sum_product = self.types[expected_type]
             if isinstance(sum_product, asdl.Product):
                 if node_type != expected_type:
@@ -223,7 +224,8 @@ class ASTWrapper(object):
             # - missing is okay
             # - otherwise, must be list
             if field.name not in node:
-                print("CHECKCC", 'val1' in node, 'dual_val1' in node, 'dual_val2' in node)
+                print(node)
+                print('AAA', field.name, field.opt, field.seq)
                 if field.opt or field.seq:
                     continue
                 raise ValueError(f'required field {field.name} is missing. path: {field_path}')
@@ -231,7 +233,7 @@ class ASTWrapper(object):
             if field.seq and field.name in node and not isinstance(
                     node[field.name], (list, tuple)):  # noqa: E125
                 raise ValueError(f'sequential field {field.name} is not sequence. path: {field_path}')
-
+            print('HERE')
             # Check that each item in this field has the expected type.
             items = node.get(field.name,
                              ()) if field.seq else (node.get(field.name),)
@@ -244,9 +246,13 @@ class ASTWrapper(object):
                 check = lambda n: self.verify_ast(n, field.type, field_path + (field.name,),
                                                   is_seq=field.seq)  # noqa: E731,E501
 
+            count = 0
             for item in items:
+                print('in assert', count)
+                count += 1
                 assert check(item)
             
+            print('XXXX')
             print("for end")
         return True
 

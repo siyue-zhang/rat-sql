@@ -54,7 +54,8 @@ module Squall
     table_unit = TableUnitSql(sql s)
                | Table(table table_id)
 
-    ncond = NAnd(ncond nleft, ncond nright)
+    ncond = Cond(cond conds)
+         | NAnd(ncond nleft, ncond nright)
          | NOr(ncond nleft, ncond nright)
 
     -- condition: [cond_unit1, 'and'/'or', cond_unit2, ...]
@@ -97,7 +98,7 @@ module Squall
     sql = (
       select select,
       from from,
-      cond? where,
+      ncond? where,
       col_unit* group_by,
       order_by? order_by,
       cond? having,
