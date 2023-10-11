@@ -116,7 +116,7 @@ class SquallDataset(torch.utils.data.Dataset):
                 continue
             count += 1
             if example['nt'] != 'n':
-            # if example['nt'] == 'nt-13348':
+            # if example['nt'] == 'nt-7639':
                 # only 1 table in squall
                 self.total_num_examples += 1
                 tbl = example["tables"][0]

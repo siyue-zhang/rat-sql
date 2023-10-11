@@ -121,6 +121,8 @@ class SpiderLanguage:
         return self.parse_sql(code)
 
     def unparse(self, tree, item):
+        print('tree')
+        print(tree, '\n')
         unparser = SpiderUnparser(self.ast_wrapper, item.schema, self.factorize_sketch)
         return unparser.unparse_sql(tree)
 

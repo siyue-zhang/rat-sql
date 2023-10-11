@@ -46,7 +46,7 @@ class SquallLanguage:
             end_with_from=False,
             clause_order=None,
             infer_from_conditions=False,
-            factorize_sketch=0):
+            factorize_sketch=2):
 
         # collect pointers and checkers
         custom_primitive_type_checkers = {}
@@ -60,6 +60,7 @@ class SquallLanguage:
             self.pointers.add('column')
 
         # create ast wrapper
+        self.factorize_sketch = factorize_sketch
         asdl_file = "Squall.asdl"
         self.ast_wrapper = ast_util.ASTWrapper(
             asdl.parse(
@@ -77,7 +78,10 @@ class SquallLanguage:
         # literals of limit field
         self.include_literals = include_literals
         if not self.include_literals:
-            limit_field = self.ast_wrapper.singular_types['sql'].fields[6]
+            if self.factorize_sketch == 0:
+                limit_field = self.ast_wrapper.singular_types['sql'].fields[6]
+            else:
+                limit_field = self.ast_wrapper.singular_types['sql_orderby'].fields[1]
             assert limit_field.name == 'limit'
             limit_field.opt = False
             limit_field.type = 'singleton'
@@ -111,8 +115,9 @@ class SquallLanguage:
         return self.parse_sql_query(code)
 
     def unparse(self, tree, item):
+        print('Unparse TREE: ', tree)
         unparser = SquallUnparser(self.ast_wrapper, item.schema, self.factorize_sketch)
-        return unparser.unparse_sql(tree)
+        return unparser.unparse_sql_query(tree)
 
     @classmethod
     def tokenize_field_value(cls, field_value):
@@ -128,15 +133,15 @@ class SquallLanguage:
         return [field_value_str]
 
     def parse_val(self, val):
-        print('current val: ', val)
+        # print('current val: ', val, type(val))
         if isinstance(val, str):
-            if not self.include_literals:
-                return {'_type': 'Terminal'}
-            elif val=='present_ref':
+            if val=='present_ref':
                 return {
                     '_type': 'Present_ref',
                     's': val,
                 }
+            elif not self.include_literals:
+                return {'_type': 'Terminal'}
             else:
                 return {
                     '_type': 'String',
@@ -198,10 +203,10 @@ class SquallLanguage:
         else:
             raise ValueError(table_type)
 
-    def parse_cond(self, cond):
-        if cond==None or len(cond)==0:
+    def parse_cond(self, cond, optional=False):
+        if optional and not cond:
             return None
-
+        
         if len(cond) > 1:
             return {
                 '_type': self.LOGIC_OPERATORS_F[cond[1]],
@@ -235,12 +240,14 @@ class SquallLanguage:
 
     def parse_dual_val(self, dual_val):
         unit_op, val1, val2 = dual_val
+        print('DUAL VAL', unit_op, val1, val2, self.DUAL_VAL_OPERATORS_F[unit_op]) 
         result = {
             '_type': self.DUAL_VAL_OPERATORS_F[unit_op],
             'val1': self.parse_val(val1),
         }
         if unit_op==0:
             assert val2 is None
+        
         if val2 is not None:
             result['val2'] = self.parse_val(val2)
         return result
@@ -265,25 +272,102 @@ class SquallLanguage:
         return result
 
 
-    def parse_sql(self, sql):
-        if sql is None:
+    def parse_sql(self, sql, optional=False):
+        if optional and sql is None:
             return None
-        
-        return filter_nones({
-            '_type': 'sql',
-            'select': self.parse_select(sql['select']),
-            'where': self.parse_nested_cond(sql['where']), # 
-            'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
-            'order_by': self.parse_order_by(sql['orderBy']),
-            'having': self.parse_cond(sql['having']),
-            'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
-            'intersect': self.parse_sql(sql['intersect']),
-            'except': self.parse_sql(sql['except']),
-            'union': self.parse_sql(sql['union']),
-            **({
-                    'from': self.parse_from(sql['from'], self.infer_from_conditions),
-                } if self.output_from else {})
-        })
+        # return filter_nones({
+        #     '_type': 'sql',
+        #     'select': self.parse_select(sql['select']),
+        #     'where': self.parse_nested_cond(sql['where']), # 
+        #     'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
+        #     'order_by': self.parse_order_by(sql['orderBy']),
+        #     'having': self.parse_cond(sql['having']),
+        #     'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
+        #     'intersect': self.parse_sql(sql['intersect']),
+        #     'except': self.parse_sql(sql['except']),
+        #     'union': self.parse_sql(sql['union']),
+        #     **({
+        #             'from': self.parse_from(sql['from'], self.infer_from_conditions),
+        #         } if self.output_from else {})
+        # })
+        if self.factorize_sketch == 0:
+            return filter_nones({
+                '_type': 'sql',
+                'select': self.parse_select(sql['select']),
+                'where': self.parse_nested_cond(sql['where']),
+                'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
+                'order_by': self.parse_order_by(sql['orderBy']),
+                'having': self.parse_cond(sql['having'], optional=True),
+                'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
+                'intersect': self.parse_sql(sql['intersect'], optional=True),
+                'except': self.parse_sql(sql['except'], optional=True),
+                'union': self.parse_sql(sql['union'], optional=True),
+                **({
+                       'from': self.parse_from(sql['from'], self.infer_from_conditions),
+                   } if self.output_from else {})
+            })
+        elif self.factorize_sketch == 1:
+            return filter_nones({
+                '_type': 'sql',
+                'select': self.parse_select(sql['select']),
+                **({
+                       'from': self.parse_from(sql['from'], self.infer_from_conditions),
+                   } if self.output_from else {}),
+                'sql_where': filter_nones({
+                    '_type': 'sql_where',
+                    'where': self.parse_nested_cond(sql['where']),
+                    'sql_groupby': filter_nones({
+                        '_type': 'sql_groupby',
+                        'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
+                        'having': filter_nones({
+                            '_type': 'having',
+                            'having': self.parse_cond(sql['having'], optional=True),
+                        }),
+                        'sql_orderby': filter_nones({
+                            '_type': 'sql_orderby',
+                            'order_by': self.parse_order_by(sql['orderBy']),
+                            'limit': filter_nones({
+                                '_type': 'limit',
+                                'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
+                            }),
+                            'sql_ieu': filter_nones({
+                                '_type': 'sql_ieu',
+                                'intersect': self.parse_sql(sql['intersect'], optional=True),
+                                'except': self.parse_sql(sql['except'], optional=True),
+                                'union': self.parse_sql(sql['union'], optional=True),
+                            })
+                        })
+                    })
+                })
+            })
+        elif self.factorize_sketch == 2:
+            return filter_nones({
+                '_type': 'sql',
+                'select': self.parse_select(sql['select']),
+                **({
+                       'from': self.parse_from(sql['from'], self.infer_from_conditions),
+                   } if self.output_from else {}),
+                "sql_where": filter_nones({
+                    '_type': 'sql_where',
+                    'where': self.parse_nested_cond(sql['where']),
+                }),
+                "sql_groupby": filter_nones({
+                    '_type': 'sql_groupby',
+                    'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
+                    'having': self.parse_cond(sql['having'], optional=True),
+                }),
+                "sql_orderby": filter_nones({
+                    '_type': 'sql_orderby',
+                    'order_by': self.parse_order_by(sql['orderBy']),
+                    'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
+                }),
+                'sql_ieu': filter_nones({
+                    '_type': 'sql_ieu',
+                    'intersect': self.parse_sql(sql['intersect'], optional=True),
+                    'except': self.parse_sql(sql['except'], optional=True),
+                    'union': self.parse_sql(sql['union'], optional=True),
+                })
+            })
 
     def parse_select(self, select):
         is_distinct, aggs = select
@@ -381,8 +465,8 @@ class SquallUnparser:
         'Plus': '+',
         'Times': '*',
         'Divide': '/',
-        'Abs': 'abs',
-        'Sum': 'sum'
+        'AbsMinus': 'ABS',
+        'SumMinus': 'SUM',
     }
     COND_TYPES_B = {
         'Between': 'BETWEEN',
@@ -395,8 +479,37 @@ class SquallUnparser:
         'In': 'IN',
         'Like': 'LIKE',
         'Is': 'IS',
+        'Exists': 'EXISTS',
         'Isnull': 'IS NULL',
         'Notnull': 'NOT NULL'
+    }
+
+    DUAL_VAL_OPERATORS_B = {
+        'DMinus': '-', 
+        'DPlus': '+', 
+        "DTimes": '*', 
+        'DDivide': '/'
+    }
+
+    QUERY_OPERATORS_B = {
+        'QMinus': '-', 
+        'QPlus': '+', 
+        'QGT': '>', 
+        'QST': '<', 
+        'QGE': '>=',
+        'QSE': '<=', 
+        'QNE': '!=', 
+        'QE': '=', 
+        'QNOTNULL': 'NOT NULL', 
+        'QISNULL': 'IS NULL', 
+        'QABS': 'ABS', 
+        'QMIN': 'MIN', 
+        'QMAX': 'MAX'
+    }
+
+    LOGIC_OPERATORS_NEST_B = {
+        'NAnd': 'AND', 
+        'NOr': 'OR'
     }
 
     @classmethod
@@ -445,17 +558,26 @@ class SquallUnparser:
         if agg_type == 'NoneAggOp':
             return column_name
         else:
-            return f'{agg_type}({column_name})'
+            return f'{agg_type} ( {column_name} )'
 
     def unparse_val_unit(self, val_unit):
         if val_unit['_type'] == 'Column':
             return self.unparse_col_unit(val_unit['col_unit1'])
         col1 = self.unparse_col_unit(val_unit['col_unit1'])
-        col2 = self.unparse_col_unit(val_unit['col_unit2'])
-        return f'{col1} {self.UNIT_TYPES_B[val_unit["_type"]]} {col2}'
+        val1 = self.unparse_val(val_unit['val1'])
+        if val_unit['_type'] in ['AbsMinus', 'SumMinus']:
+            result = f'{self.UNIT_TYPES_B[val_unit["_type"]]} ( {col1} - {val1} )'
+        else:
+            result = f'{col1} {self.UNIT_TYPES_B[val_unit["_type"]]} {val1}'
+        return result
 
-    # def unparse_table_unit(self, table_unit):
-    #    raise NotImplementedError
+    def unparse_dual_val(self, dual_val):
+        if dual_val['_type'] == 'DValue':
+            return self.unparse_val(dual_val['val1'])
+        val1 = self.unparse_val(dual_val['val1'])
+        val2 = self.unparse_val(dual_val['val2'])
+        return f'{val1} {self.DUAL_VAL_OPERATORS_B[dual_val["_type"]]} {val2}'
+
 
     def unparse_cond(self, cond, negated=False):
         if cond['_type'] == 'And':
@@ -472,16 +594,33 @@ class SquallUnparser:
                 tokens.append('NOT')
             tokens += [
                 'BETWEEN',
-                self.unparse_val(cond['val1']),
+                self.unparse_dual_val(cond['dual_val1']),
                 'AND',
-                self.unparse_val(cond['val2']),
+                self.unparse_dual_val(cond['dual_val2']),
             ]
             return ' '.join(tokens)
+        elif cond['_type'] in ['Notnull', 'Isnull']:
+            tokens = [self.unparse_val_unit(cond['val_unit'])]
+            tokens += self.COND_TYPES_B[cond['_type']].split(' ')
+            return ' '.join(tokens)
+        
         tokens = [self.unparse_val_unit(cond['val_unit'])]
         if negated:
             tokens.append('NOT')
         tokens += [self.COND_TYPES_B[cond['_type']], self.unparse_val(cond['val1'])]
         return ' '.join(tokens)
+
+    def unparse_nested_cond(self, nested_conds):
+        if nested_conds['_type'] in ['NAnd', 'NOr']:
+            res1= self.unparse_nested_cond(nested_conds["nleft"])
+            res2= self.unparse_nested_cond(nested_conds["nright"])
+            if 'and' in res1.lower() or 'or' in res1.lower():
+                res1 = f'( {res1} )'
+            if 'and' in res2.lower() or 'or' in res2.lower():
+                res1 = f'( {res2} )'
+            return f"{res1} {self.LOGIC_OPERATORS_NEST_B[nested_conds['_type']]} {res2}"
+        return self.unparse_cond(nested_conds["conds"])
+
 
     def refine_from(self, tree):
         """
@@ -570,6 +709,7 @@ class SquallUnparser:
         if cond_node is not None:
             tree['from']['conds'] = cond_node
 
+
     def unparse_sql(self, tree):
         self.refine_from(tree)
 
@@ -596,7 +736,7 @@ class SquallUnparser:
         if 'where' in target_tree:
             result += [
                 'WHERE',
-                self.unparse_cond(target_tree['where'])
+                self.unparse_nested_cond(target_tree['where'])
             ]
 
         tree, target_tree = find_subtree(tree, "sql_groupby")
@@ -652,7 +792,9 @@ class SquallUnparser:
         if agg_type == 'NoneAggOp':
             return unparsed_val_unit
         else:
-            return f'{agg_type}({unparsed_val_unit})'
+            if agg_type in ['Julianday', 'Length']:
+                agg_type = agg_type.lower()
+            return f'{agg_type} ( {unparsed_val_unit} )'
 
     def unparse_from(self, from_):
         if 'conds' in from_:
@@ -702,3 +844,21 @@ class SquallUnparser:
 
     def unparse_order_by(self, order_by):
         return f'ORDER BY {", ".join(self.unparse_val_unit(v) for v in order_by["val_units"])} {order_by["order"]["_type"]}'
+
+    def unparse_sql_query(self, query):
+        if query['_type'] == 'Single':
+            return self.unparse_val(query['val1'])
+        if query['_type'] in ['QNOTNULL', 'QISNULL']:
+            return f"select ( {self.unparse_val(query['val1'])} ) {self.QUERY_OPERATORS_B[query['_type']]}"
+        res1 = self.unparse_val(query['val1'])
+        res2 = self.unparse_val(query['val2'])
+        if res1[:6] == 'select':
+            res1 = f'( {res1} )'
+        if res2[:6] == 'select':
+            res2 = f'( {res2} )'
+        if query['_type'] == 'ABS':
+            return f"select ABS ( {res1} - {res2} )"
+        if query['_type'] in ['QMIN', 'QMAX']:
+            return f"selelct {self.QUERY_OPERATORS_B[query['_type']]} ( {res1} , {res2} )"
+        return f"select {res1} {self.QUERY_OPERATORS_B[query['_type']]} {res2}"
+

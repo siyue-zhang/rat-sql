@@ -95,6 +95,8 @@ class Trainer:
                 config['model'],
                 unused_keys=('name',))
             self.model_preproc.load()
+            print('Construct preprocessors ', registry.lookup('model', config['model']))
+            print('model ', config['model'])
 
             # 1. Construct model
             self.model = registry.construct('model', config['model'],

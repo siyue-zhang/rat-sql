@@ -574,6 +574,7 @@ class NL2CodeDecoder(torch.nn.Module):
                 parent_field_type=self.preproc.grammar.root_type,
             )
         ]
+        print('check grammar ', self.preproc.grammar)
         while queue:
             item = queue.pop()
             node = item.node

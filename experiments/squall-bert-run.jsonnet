@@ -6,7 +6,7 @@
         bs: 6,
         num_batch_accumulated: 4,
         bert_version: "bert-large-uncased-whole-word-masking",
-        summarize_header: "avg",
+        summarize_header: "first", # "avg"
         use_column_type: false,
         max_steps: 1000,
         num_layers: 8,

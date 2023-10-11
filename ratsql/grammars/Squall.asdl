@@ -98,11 +98,27 @@ module Squall
     sql = (
       select select,
       from from,
+      sql_where sql_where,
+      sql_groupby sql_groupby,
+      sql_orderby sql_orderby,
+      sql_ieu sql_ieu,
+    )
+
+    sql_where = (
       ncond? where,
+    )
+
+    sql_groupby = (
       col_unit* group_by,
-      order_by? order_by,
       cond? having,
-      int? limit, 
+    )
+
+    sql_orderby = (
+      order_by? order_by,
+      int? limit,
+    )
+
+    sql_ieu = (
       sql? intersect,
       sql? except,
       sql? union,
@@ -120,7 +136,7 @@ module Squall
         | QNE(val val1, val val2)
         | QE(val val1, val val2)
         | QNOTNULL(val val1)
-        | QISNULL(val val11)
+        | QISNULL(val val1)
         | QABS(val val1, val val2)
         | QMIN(val val1, val val2)
         | QMAX(val val1, val val2)

@@ -821,6 +821,7 @@ class SpiderEncoderBert(torch.nn.Module):
                 continue
 
             q_b = len(qs)
+            print('qs ', qs)
             col_b = q_b + sum(len(c) for c in cols)
             # leave out [CLS] and [SEP]
             question_indexes = list(range(q_b))[1:-1]
@@ -830,6 +831,8 @@ class SpiderEncoderBert(torch.nn.Module):
             table_indexes = \
                 np.cumsum([col_b] + [len(token_list) for token_list in tabs[:-1]]).tolist()
             if self.summarize_header == "avg":
+                print('lens: ', [len(token_list) for token_list in cols])
+                print(cols)
                 column_indexes_2 = \
                     np.cumsum([q_b - 2] + [len(token_list) for token_list in cols]).tolist()[1:]
                 table_indexes_2 = \
@@ -845,6 +848,7 @@ class SpiderEncoderBert(torch.nn.Module):
             table_rep_ids = torch.LongTensor(table_indexes).to(self._device)
             batch_id_to_retrieve_table.append(table_rep_ids)
             if self.summarize_header == "avg":
+                print("COLUM CHECK: ", column_indexes, column_indexes_2)
                 assert (all(i2 >= i1 for i1, i2 in zip(column_indexes, column_indexes_2)))
                 column_rep_ids_2 = torch.LongTensor(column_indexes_2).to(self._device)
                 batch_id_to_retrieve_column_2.append(column_rep_ids_2)

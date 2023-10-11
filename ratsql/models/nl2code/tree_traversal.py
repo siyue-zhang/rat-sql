@@ -218,6 +218,8 @@ class TreeTraversal:
     def process_children_apply(self, last_choice):
         # b. Create the children
         node_type, children_presence = self.model.preproc.all_rules[last_choice]
+        print('node_type ', node_type, 'cur_item.node_type ', self.cur_item.node_type)
+        print("last choice: ", last_choice)
         assert node_type == self.cur_item.node_type
 
         self.queue = self.queue.append(

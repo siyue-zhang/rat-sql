@@ -32,6 +32,7 @@ class NL2CodeEncoder(torch.nn.Module):
                 max_count=5000):
             self.vocab_path = os.path.join(save_path, 'enc_vocab.json')
             self.data_dir = os.path.join(save_path, 'enc')
+            print('Loading ', self.vocab_path, self.data_dir)
 
             self.vocab_builder = vocab.VocabBuilder(min_freq, max_count)
             self.init_items()
