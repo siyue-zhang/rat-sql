@@ -104,9 +104,9 @@ class TreeTraversal:
             )
 
             handler_name = TreeTraversal.Handler.handlers[self.cur_item.state]
-            print('handler_name ', handler_name, 'cur_item ', self.cur_item.state)
+            # print('handler_name ', handler_name, 'cur_item ', self.cur_item.state)
             handler = getattr(self, handler_name)
-            print('last choice ', last_choice)
+            # print('last choice ', last_choice)
             choices, continued = handler(last_choice)
             if continued:
                 last_choice = choices
@@ -190,7 +190,6 @@ class TreeTraversal:
         type_info = self.model.ast_wrapper.singular_types[
             self.cur_item.node_type
         ]
-        print('self.cur_item.node_type ', self.cur_item.node_type)
         if not type_info.fields:
             if self.pop():
                 last_choice = None
@@ -221,8 +220,8 @@ class TreeTraversal:
     def process_children_apply(self, last_choice):
         # b. Create the children
         node_type, children_presence = self.model.preproc.all_rules[last_choice]
-        print('node_type ', node_type, 'cur_item.node_type ', self.cur_item.node_type)
-        print("last choice: ", last_choice)
+        # print('node_type ', node_type, 'cur_item.node_type ', self.cur_item.node_type)
+        # print("last choice: ", last_choice)
         assert node_type == self.cur_item.node_type
 
         self.queue = self.queue.append(

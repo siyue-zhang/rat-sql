@@ -32,7 +32,6 @@ class ASTWrapperVisitor(asdl.VisitorBase):
 
     def visitType(self, type_):
         # type: (asdl.Type) -> None
-        print('visit ', type_)
         self.visit(type_.value, str(type_.name))
 
     def visitSum(self, sum_, name):
@@ -85,7 +84,6 @@ class ASTWrapper(object):
         self.ast_def = ast_def
 
         visitor = ASTWrapperVisitor()
-        print('ast_def: ', ast_def)
         visitor.visit(ast_def)
 
         self.constructors = visitor.constructors
@@ -184,7 +182,7 @@ class ASTWrapper(object):
 
         node_type = node['_type']  # type: str
         if expected_type is not None:
-            print('expected type: ', expected_type, 'node type: ', node_type)
+            # print('expected type: ', expected_type, 'node type: ', node_type)
             sum_product = self.types[expected_type]
             if isinstance(sum_product, asdl.Product):
                 if node_type != expected_type:
@@ -201,7 +199,7 @@ class ASTWrapper(object):
 
             else:
                 raise ValueError(f'Unexpected type in ASDL: {sum_product}')
-        print('\nCHECK NODE: ', node)
+        # print('\nCHECK NODE: ', node)
 
         if node_type in self.types:
             # Either a product or a sum type; we want it to be a product type
@@ -214,18 +212,16 @@ class ASTWrapper(object):
         else:
             raise ValueError(f'Unknown node_type {node_type}. path: {field_path}')
 
-        print('start', fields_to_check)
+        # print('start', fields_to_check)
         for field in fields_to_check:
-            print('all ', fields_to_check)
-            print('now ', field, field.name)
             # field.opt:
             # - missing is okay
             # field.seq
             # - missing is okay
             # - otherwise, must be list
             if field.name not in node:
-                print(node)
-                print('AAA', field.name, field.opt, field.seq)
+                # print(node)
+                # print('AAA', field.name, field.opt, field.seq)
                 if field.opt or field.seq:
                     continue
                 raise ValueError(f'required field {field.name} is missing. path: {field_path}')
@@ -233,7 +229,7 @@ class ASTWrapper(object):
             if field.seq and field.name in node and not isinstance(
                     node[field.name], (list, tuple)):  # noqa: E125
                 raise ValueError(f'sequential field {field.name} is not sequence. path: {field_path}')
-            print('HERE')
+
             # Check that each item in this field has the expected type.
             items = node.get(field.name,
                              ()) if field.seq else (node.get(field.name),)
@@ -248,18 +244,15 @@ class ASTWrapper(object):
 
             count = 0
             for item in items:
-                print('in assert', count)
                 count += 1
                 assert check(item)
             
-            print('XXXX')
-            print("for end")
         return True
 
     def find_all_descendants_of_type(self, tree, type, descend_pred=lambda field: True):
-        print('find_all_descendants_of_type')
-        print('tree', tree) 
-        print('type', type)
+        # print('find_all_descendants_of_type')
+        # print('tree', tree) 
+        # print('type', type)
         queue = [tree]
         while queue:
             node = queue.pop()

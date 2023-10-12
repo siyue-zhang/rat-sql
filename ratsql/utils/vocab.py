@@ -61,7 +61,6 @@ class Vocab(collections.abc.Set):
 
     def index(self, value):
         # type: (T) -> int
-        print('value ', value)
         try:
             return self.elem_to_id[value]
         except KeyError:
