@@ -48,7 +48,16 @@ def compute_align_loss(model, desc_enc, example):
     else:
         mt_margin = torch.tensor(0.0).to(model._device)
 
-    align_loss = - torch.log(mc_max_rel_att).mean() - torch.log(mt_max_rel_att).mean()
+    if mc_max_rel_att.size()[0]==0:
+        loss1 = torch.zeros(1, device=mc_max_rel_att.device)
+    else:
+        loss1 = - torch.log(mc_max_rel_att).mean()
+    if mt_max_rel_att.size()[0]==0:
+        loss2 = torch.zeros(1, device=mt_max_rel_att.device)
+    else:
+        loss2 = - torch.log(mt_max_rel_att).mean()
+
+    align_loss =  loss1+loss2
     return align_loss
 
 

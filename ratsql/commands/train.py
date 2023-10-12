@@ -95,8 +95,8 @@ class Trainer:
                 config['model'],
                 unused_keys=('name',))
             self.model_preproc.load()
-            print('Construct preprocessors ', registry.lookup('model', config['model']))
-            print('model ', config['model'])
+            # print('Construct preprocessors ', registry.lookup('model', config['model']))
+            # print('model ', config['model'])
 
             # 1. Construct model
             self.model = registry.construct('model', config['model'],
@@ -171,7 +171,7 @@ class Trainer:
             val_data,
             batch_size=self.train_config.eval_batch_size,
             collate_fn=lambda x: x)
-
+        print('val dataset ', len(val_data_loader))
         # 4. Start training loop
         with self.data_random:
             for batch in train_data_loader:
@@ -182,6 +182,8 @@ class Trainer:
                 # Evaluate model
                 if last_step % self.train_config.eval_every_n == 0:
                     if self.train_config.eval_on_train:
+                        print('eval_on_train ', self.train_config.eval_on_train)
+                        print('last_step ', last_step)
                         self._eval_model(self.logger, self.model, last_step, train_eval_data_loader, 'train',
                                          num_eval_items=self.train_config.num_eval_items)
                     if self.train_config.eval_on_val:
@@ -225,6 +227,7 @@ class Trainer:
     def _eval_model(logger, model, last_step, eval_data_loader, eval_section, num_eval_items=None):
         stats = collections.defaultdict(float)
         model.eval()
+        print('stats1 ', stats)
         with torch.no_grad():
             for eval_batch in eval_data_loader:
                 batch_res = model.eval_on_batch(eval_batch)
@@ -233,7 +236,7 @@ class Trainer:
                 if num_eval_items and stats['total'] > num_eval_items:
                     break
         model.train()
-
+        print('stats2 ', stats)
         # Divide each stat by 'total'
         for k in stats:
             if k != 'total':
@@ -241,7 +244,9 @@ class Trainer:
         if 'total' in stats:
             del stats['total']
 
+        print('stats.items ', stats.items())
         kv_stats = ", ".join(f"{k} = {v}" for k, v in stats.items())
+        print(kv_stats)
         logger.log(f"Step {last_step} stats, {eval_section}: {kv_stats}")
 
 

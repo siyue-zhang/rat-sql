@@ -668,6 +668,7 @@ class NL2CodeDecoder(torch.nn.Module):
                     ))
 
         loss = torch.sum(torch.stack(tuple(traversal.loss), dim=0), dim=0)
+        
         if debug:
             return loss, [attr.asdict(entry) for entry in traversal.history]
         else:
