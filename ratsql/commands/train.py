@@ -227,7 +227,7 @@ class Trainer:
     def _eval_model(logger, model, last_step, eval_data_loader, eval_section, num_eval_items=None):
         stats = collections.defaultdict(float)
         model.eval()
-        print('stats1 ', stats)
+
         with torch.no_grad():
             for eval_batch in eval_data_loader:
                 batch_res = model.eval_on_batch(eval_batch)
@@ -236,7 +236,7 @@ class Trainer:
                 if num_eval_items and stats['total'] > num_eval_items:
                     break
         model.train()
-        print('stats2 ', stats)
+
         # Divide each stat by 'total'
         for k in stats:
             if k != 'total':
@@ -244,9 +244,9 @@ class Trainer:
         if 'total' in stats:
             del stats['total']
 
-        print('stats.items ', stats.items())
+        # print('stats.items ', stats.items())
         kv_stats = ", ".join(f"{k} = {v}" for k, v in stats.items())
-        print(kv_stats)
+        # print(kv_stats)
         logger.log(f"Step {last_step} stats, {eval_section}: {kv_stats}")
 
 
