@@ -364,6 +364,9 @@ class NL2CodeDecoder(torch.nn.Module):
                 sorted(self.ast_wrapper.singular_types.keys()) +
                 sorted(self.preproc.seq_lengths.keys()),
                 special_elems=())
+        print('self.preproc.use_seq_elem_rules ', self.preproc.use_seq_elem_rules)
+        print('self.node_type_vocab ')
+        print(self.node_type_vocab.id_to_elem )
 
         self.state_update = variational_lstm.RecurrentDropoutLSTMCell(
             input_size=self.rule_emb_size * 2 + self.enc_recurrent_size + self.recurrent_size + self.node_emb_size,
@@ -567,6 +570,7 @@ class NL2CodeDecoder(torch.nn.Module):
 
     def compute_mle_loss(self, enc_input, example, desc_enc, debug=False):
         traversal = TrainTreeTraversal(self, desc_enc, debug)
+        # print('example.tree ', example.tree, 'desc_enc ', desc_enc)
         traversal.step(None)
         queue = [
             TreeState(
@@ -574,7 +578,7 @@ class NL2CodeDecoder(torch.nn.Module):
                 parent_field_type=self.preproc.grammar.root_type,
             )
         ]
-        print('check grammar ', self.preproc.grammar)
+
         while queue:
             item = queue.pop()
             node = item.node
@@ -695,6 +699,7 @@ class NL2CodeDecoder(torch.nn.Module):
         return torch.tensor(data, dtype=dtype, device=self._device)
 
     def _index(self, vocab, word):
+        # print('word ', word, 'vocab ', vocab, vocab.id_to_elem)
         return self._tensor([vocab.index(word)])
 
     def _update_state(

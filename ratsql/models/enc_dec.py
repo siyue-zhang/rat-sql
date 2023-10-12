@@ -74,6 +74,10 @@ class EncDecModel(torch.nn.Module):
         losses = []
         enc_states = self.encoder([enc_input for enc_input, dec_output in batch])
 
+        print('OOOO')
+        print(self.decoder.preproc.sum_type_constructors)
+        print('XXXX')
+        print(self.decoder.preproc.field_presence_infos)
         for enc_state, (enc_input, dec_output) in zip(enc_states, batch):
             loss = self.decoder.compute_loss(enc_input, dec_output, enc_state, debug)
             losses.append(loss)

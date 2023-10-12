@@ -257,6 +257,9 @@ class ASTWrapper(object):
         return True
 
     def find_all_descendants_of_type(self, tree, type, descend_pred=lambda field: True):
+        print('find_all_descendants_of_type')
+        print('tree', tree) 
+        print('type', type)
         queue = [tree]
         while queue:
             node = queue.pop()

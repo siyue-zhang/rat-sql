@@ -52,5 +52,7 @@ RUN pip install sqlparse
 RUN pip install stanfordnlp
 RUN apt-get update -y \
     && apt-get install -y nodejs npm
+RUN pip install debugpy
+RUN pip install protobuf==3.6
 
 ENTRYPOINT bash

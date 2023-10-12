@@ -104,7 +104,9 @@ class TreeTraversal:
             )
 
             handler_name = TreeTraversal.Handler.handlers[self.cur_item.state]
+            print('handler_name ', handler_name, 'cur_item ', self.cur_item.state)
             handler = getattr(self, handler_name)
+            print('last choice ', last_choice)
             choices, continued = handler(last_choice)
             if continued:
                 last_choice = choices
@@ -188,6 +190,7 @@ class TreeTraversal:
         type_info = self.model.ast_wrapper.singular_types[
             self.cur_item.node_type
         ]
+        print('self.cur_item.node_type ', self.cur_item.node_type)
         if not type_info.fields:
             if self.pop():
                 last_choice = None

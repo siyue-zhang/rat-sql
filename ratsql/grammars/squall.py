@@ -75,40 +75,45 @@ class SquallLanguage:
             assert col_unit_fields[1].name == 'col_id'
             del col_unit_fields[1]
 
-        # literals of limit field
+        # # literals of limit field
         self.include_literals = include_literals
-        if not self.include_literals:
-            if self.factorize_sketch == 0:
-                limit_field = self.ast_wrapper.singular_types['sql'].fields[6]
-            else:
-                limit_field = self.ast_wrapper.singular_types['sql_orderby'].fields[1]
-            assert limit_field.name == 'limit'
-            limit_field.opt = False
-            limit_field.type = 'singleton'
+        # if not self.include_literals:
+        #     if self.factorize_sketch == 0:
+        #         limit_field = self.ast_wrapper.singular_types['sql'].fields[6]
+        #     else:
+        #         limit_field = self.ast_wrapper.singular_types['sql_orderby'].fields[1]
+        #     assert limit_field.name == 'limit'
+        #     limit_field.opt = False
+        #     limit_field.type = 'singleton'
 
-        # from field
+        # # from field
         self.output_from = output_from
         self.end_with_from = end_with_from
         self.clause_order = clause_order
         self.infer_from_conditions = infer_from_conditions
-        if self.clause_order:
-            # clause order is prioritized over configurations like end_with_from
-            assert factorize_sketch == 2  # TODO support other grammars
-            sql_fields = self.ast_wrapper.product_types['sql'].fields
-            letter2field = {k: v for k, v in zip("SFWGOI", sql_fields)}
-            new_sql_fields = [letter2field[k] for k in self.clause_order]
-            self.ast_wrapper.product_types['sql'].fields = new_sql_fields
-        else:
-            if not self.output_from:
-                sql_fields = self.ast_wrapper.product_types['sql'].fields
-                assert sql_fields[1].name == 'from'
-                del sql_fields[1]
-            else:
-                sql_fields = self.ast_wrapper.product_types['sql'].fields
-                assert sql_fields[1].name == "from"
-                if self.end_with_from:
-                    sql_fields.append(sql_fields[1])
-                    del sql_fields[1]
+        print('self.include_literals ', self.include_literals)
+        print('self.output_from ', self.output_from)
+        print('self.clause_order ', self.clause_order)
+        print('self.infer_from_conditions ', self.infer_from_conditions)
+
+        # if self.clause_order:
+        #     # clause order is prioritized over configurations like end_with_from
+        #     assert factorize_sketch == 2  # TODO support other grammars
+        #     sql_fields = self.ast_wrapper.product_types['sql'].fields
+        #     letter2field = {k: v for k, v in zip("SFWGOI", sql_fields)}
+        #     new_sql_fields = [letter2field[k] for k in self.clause_order]
+        #     self.ast_wrapper.product_types['sql'].fields = new_sql_fields
+        # else:
+        #     if not self.output_from:
+        #         sql_fields = self.ast_wrapper.product_types['sql'].fields
+        #         assert sql_fields[1].name == 'from'
+        #         del sql_fields[1]
+        #     else:
+        #         sql_fields = self.ast_wrapper.product_types['sql'].fields
+        #         assert sql_fields[1].name == "from"
+        #         if self.end_with_from:
+        #             sql_fields.append(sql_fields[1])
+        #             del sql_fields[1]
 
     def parse(self, code, section):
         print('code to parse: ', code)
@@ -275,24 +280,10 @@ class SquallLanguage:
     def parse_sql(self, sql, optional=False):
         if optional and sql is None:
             return None
-        # return filter_nones({
-        #     '_type': 'sql',
-        #     'select': self.parse_select(sql['select']),
-        #     'where': self.parse_nested_cond(sql['where']), # 
-        #     'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
-        #     'order_by': self.parse_order_by(sql['orderBy']),
-        #     'having': self.parse_cond(sql['having']),
-        #     'limit': sql['limit'] if self.include_literals else (sql['limit'] is not None),
-        #     'intersect': self.parse_sql(sql['intersect']),
-        #     'except': self.parse_sql(sql['except']),
-        #     'union': self.parse_sql(sql['union']),
-        #     **({
-        #             'from': self.parse_from(sql['from'], self.infer_from_conditions),
-        #         } if self.output_from else {})
-        # })
+
         if self.factorize_sketch == 0:
             return filter_nones({
-                '_type': 'sql',
+                '_type': 'ssql',
                 'select': self.parse_select(sql['select']),
                 'where': self.parse_nested_cond(sql['where']),
                 'group_by': [self.parse_col_unit(u) for u in sql['groupBy']],
@@ -308,7 +299,7 @@ class SquallLanguage:
             })
         elif self.factorize_sketch == 1:
             return filter_nones({
-                '_type': 'sql',
+                '_type': 'ssql',
                 'select': self.parse_select(sql['select']),
                 **({
                        'from': self.parse_from(sql['from'], self.infer_from_conditions),
@@ -342,7 +333,7 @@ class SquallLanguage:
             })
         elif self.factorize_sketch == 2:
             return filter_nones({
-                '_type': 'sql',
+                '_type': 'ssql',
                 'select': self.parse_select(sql['select']),
                 **({
                        'from': self.parse_from(sql['from'], self.infer_from_conditions),
@@ -414,7 +405,12 @@ class SquallLanguage:
                 'val1': self.parse_val(val1)}
         if val2 is not None:  # careful about 0
             result['val2'] = self.parse_val(val2)
+        result = {
+                '_type': 'sql',
+                'query': result
+                }
         return result
+    
 
     COND_TYPES_F, COND_TYPES_B = bimap(
         # ('not', 'between', '=', '>', '<', '>=', '<=', '!=', 'in', 'like', 'is', 'exists', 'notnull', 'isnull'),

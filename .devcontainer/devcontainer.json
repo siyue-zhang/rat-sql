@@ -22,7 +22,7 @@
 	// "features": {},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [6007],
+	"forwardPorts": [6007, 5678],
 	"customizations": {
 		// Configure properties specific to VS Code.
 		"vscode": {
@@ -35,10 +35,11 @@
 	},
 	"mounts": [
 		"source=/home/ali-siyue/Projects/test/tableQA_text_to_SQL/data,target=/workspaces/rat-sql/data,type=bind,consistency=cached",
-		"source=/home/ali-siyue/Projects/test/tableQA_text_to_SQL/third_party,target=/workspaces/rat-sql/third_party,type=bind,consistency=cached"]
+		"source=/home/ali-siyue/Projects/test/tableQA_text_to_SQL/third_party,target=/workspaces/rat-sql/third_party,type=bind,consistency=cached"
+	]
 
 	// Uncomment the next line to run commands after the container is created.
-	// "postCreateCommand": "cat /etc/os-release",
+	// "postCreateCommand": "python run.py ./configs/squall"
 
 	// Configure tool-specific properties.
 	// "customizations": {},

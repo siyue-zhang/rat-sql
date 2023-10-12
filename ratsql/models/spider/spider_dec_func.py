@@ -11,13 +11,25 @@ def compute_align_loss(model, desc_enc, example):
     rel_cols_t = torch.LongTensor(sorted(list(set(rel_cols)))).to(model._device)
     rel_tabs_t = torch.LongTensor(sorted(list(set(rel_tabs)))).to(model._device)
 
-    mc_att_on_rel_col = desc_enc.m2c_align_mat.index_select(1, rel_cols_t)
-    mc_max_rel_att, _ = mc_att_on_rel_col.max(dim=0)
-    mc_max_rel_att.clamp_(min=1e-9)
-
-    mt_att_on_rel_tab = desc_enc.m2t_align_mat.index_select(1, rel_tabs_t)
-    mt_max_rel_att, _ = mt_att_on_rel_tab.max(dim=0)
-    mt_max_rel_att.clamp_(min=1e-9)
+    # print('rel_cols_t ', rel_cols_t, rel_cols_t.size())
+    # new
+    s = rel_cols_t.size()
+    if  len(s) == 1 and s[0]==0:
+        mc_max_rel_att = torch.zeros_like(rel_cols_t, device=rel_cols_t.device)
+    else:
+        mc_att_on_rel_col = desc_enc.m2c_align_mat.index_select(1, rel_cols_t)
+        # print('mc_att_on_rel_col ', mc_att_on_rel_col)
+        mc_max_rel_att, _ = mc_att_on_rel_col.max(dim=0)
+        # print('mc_max_rel_att ', mc_max_rel_att)
+        mc_max_rel_att.clamp_(min=1e-9)
+    # new
+    ts = rel_tabs_t.size()
+    if  len(ts) == 1 and ts[0]==0:
+        mt_max_rel_att = torch.zeros_like(rel_tabs_t, device=rel_tabs_t.device)
+    else:
+        mt_att_on_rel_tab = desc_enc.m2t_align_mat.index_select(1, rel_tabs_t)
+        mt_max_rel_att, _ = mt_att_on_rel_tab.max(dim=0)
+        mt_max_rel_att.clamp_(min=1e-9)
 
     c_num = desc_enc.m2c_align_mat.size()[1]
     un_rel_cols_t = torch.LongTensor(sorted(list(set(range(c_num)) - set(rel_cols)))).to(model._device)

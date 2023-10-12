@@ -5,10 +5,10 @@
 
 module Squall
 {
-    -- val: number(float)/string(str)/sql(dict)
+    -- val: number(float)/string(str)/ssql(dict)
     val = Number(object f)
         | String(string s)
-        | ValSql(sql s)
+        | ValSql(ssql s)
         | ColUnit(col_unit c)
         | Present_ref(string s)
         | Terminal
@@ -51,7 +51,7 @@ module Squall
 
 
     -- table_unit: (table_type, col_unit/sql)
-    table_unit = TableUnitSql(sql s)
+    table_unit = TableUnitSql(ssql s)
                | Table(table table_id)
 
     ncond = Cond(cond conds)
@@ -95,7 +95,7 @@ module Squall
     --   'except': None/sql
     --   'union': None/sql
     -- }
-    sql = (
+    ssql = (
       select select,
       from from,
       sql_where sql_where,
@@ -119,10 +119,12 @@ module Squall
     )
 
     sql_ieu = (
-      sql? intersect,
-      sql? except,
-      sql? union,
+      ssql? intersect,
+      ssql? except,
+      ssql? union,
     )
+
+    sql = (query query)
 
     -- ADD: for "select (select) > (select/number)"
     --          "select (select) + (select/number)"
