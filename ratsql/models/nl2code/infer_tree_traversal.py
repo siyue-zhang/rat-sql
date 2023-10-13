@@ -180,7 +180,7 @@ class InferenceTreeTraversal(TreeTraversal):
                 raise ValueError(action)
 
         assert not stack
-        print('unparse: ', root, self.example)
-        print('\n result: ', self.model.preproc.grammar.unparse(root, self.example))
+        # print('unparse: ', root, self.example)
+        # print('\n result: ', self.model.preproc.grammar.unparse(root, self.example))
         return root, self.model.preproc.grammar.unparse(root, self.example)
 

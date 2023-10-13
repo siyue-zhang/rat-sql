@@ -79,6 +79,8 @@ def main():
                                    model_config_args, logdir)
         train.main(train_config)
     elif args.mode == "eval":
+        # new
+        skip_infer = False
         for step in exp_config["eval_steps"]:
             infer_output_path = f"{exp_config['eval_output']}/{exp_config['eval_name']}-step{step}.infer"
             infer_config = InferConfig(
@@ -90,9 +92,9 @@ def main():
                 infer_output_path,
                 step,
                 use_heuristic=exp_config["eval_use_heuristic"]
-            )
-            infer.main(infer_config)
-
+                )
+            if not skip_infer:
+                infer.main(infer_config)
             eval_output_path = f"{exp_config['eval_output']}/{exp_config['eval_name']}-step{step}.eval"
             eval_config = EvalConfig(
                 model_config_file,
@@ -102,10 +104,13 @@ def main():
                 infer_output_path,
                 eval_output_path
             )
-            eval.main(eval_config)
+            real_logdir = eval.main(eval_config)
 
-            res_json = json.load(open(eval_output_path))
-            print(step, res_json['total_scores']['all']['exact'])
+            res_json = json.load(open(eval_output_path.replace('__LOGDIR__', real_logdir)))
+            print('------------eval-----------------')
+            print('model: ', step, 'steps')
+            print('execution acc: ', res_json['total_scores']['execution_accuracy'])
+            print('logical form acc: ', res_json['total_scores']['lf'])
 
 
 if __name__ == "__main__":

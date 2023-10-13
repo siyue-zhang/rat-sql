@@ -31,6 +31,7 @@ def main(args):
     else:
         print(metrics)
 
+    return real_logdir
 
 if __name__ == '__main__':
     args = add_parser()

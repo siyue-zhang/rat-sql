@@ -91,10 +91,10 @@ class SquallLanguage:
         self.end_with_from = end_with_from
         self.clause_order = clause_order
         self.infer_from_conditions = infer_from_conditions
-        print('self.include_literals ', self.include_literals)
-        print('self.output_from ', self.output_from)
-        print('self.clause_order ', self.clause_order)
-        print('self.infer_from_conditions ', self.infer_from_conditions)
+        # print('self.include_literals ', self.include_literals)
+        # print('self.output_from ', self.output_from)
+        # print('self.clause_order ', self.clause_order)
+        # print('self.infer_from_conditions ', self.infer_from_conditions)
 
         # if self.clause_order:
         #     # clause order is prioritized over configurations like end_with_from
@@ -116,13 +116,16 @@ class SquallLanguage:
         #             del sql_fields[1]
 
     def parse(self, code, section):
-        print('code to parse: ', code)
+        # print('code to parse: ', code)
         return self.parse_sql_query(code)
 
     def unparse(self, tree, item):
-        print('Unparse TREE: ', tree)
         unparser = SquallUnparser(self.ast_wrapper, item.schema, self.factorize_sketch)
-        return unparser.unparse_sql_query(tree)
+        code = unparser.unparse_sql_query(tree)
+        # print('Item: ', item)
+        print('Tree: ', tree)
+        print('Inferred code: ', code)
+        return code
 
     @classmethod
     def tokenize_field_value(cls, field_value):
@@ -138,7 +141,6 @@ class SquallLanguage:
         return [field_value_str]
 
     def parse_val(self, val):
-        # print('current val: ', val, type(val))
         if isinstance(val, str):
             if val=='present_ref':
                 return {
@@ -245,7 +247,7 @@ class SquallLanguage:
 
     def parse_dual_val(self, dual_val):
         unit_op, val1, val2 = dual_val
-        print('DUAL VAL', unit_op, val1, val2, self.DUAL_VAL_OPERATORS_F[unit_op]) 
+        # print('DUAL VAL', unit_op, val1, val2, self.DUAL_VAL_OPERATORS_F[unit_op]) 
         result = {
             '_type': self.DUAL_VAL_OPERATORS_F[unit_op],
             'val1': self.parse_val(val1),
@@ -258,7 +260,7 @@ class SquallLanguage:
         return result
 
     def parse_nested_cond(self, nested_conds):
-        print('nested conds: ', nested_conds, len(nested_conds))
+        # print('nested conds: ', nested_conds, len(nested_conds))
         if len(nested_conds)==0:
             return None
         
@@ -397,8 +399,8 @@ class SquallLanguage:
         }
 
     def parse_sql_query(self, query):
-        print('len query: ', len(query))
-        print('check query: ', query, '\n')
+        # print('len query: ', len(query))
+        # print('check query: ', query, '\n')
         query_op, val1, val2 = query
         result = {
                 '_type': self.QUERY_OPERATORS_F[query_op],
@@ -534,7 +536,7 @@ class SquallUnparser:
         if val['_type'] == 'Number':
             return str(val['f'])
         if val['_type'] == 'ValSql':
-            return f'({self.unparse_sql(val["s"])})'
+            return f'{self.unparse_sql(val["s"])}'
         if val['_type'] == 'Present_ref':
             return "'present_ref'"
 
@@ -544,7 +546,9 @@ class SquallUnparser:
             if column.table is None:
                 column_name = column.orig_name
             else:
-                column_name = f'{column.table.orig_name}.{column.orig_name}'
+                # squall single table
+                # column_name = f'{column.table.orig_name}.{column.orig_name}'
+                column_name = f'{column.orig_name}'
         else:
             column_name = 'some_col'
 
@@ -603,7 +607,7 @@ class SquallUnparser:
         tokens = [self.unparse_val_unit(cond['val_unit'])]
         if negated:
             tokens.append('NOT')
-        tokens += [self.COND_TYPES_B[cond['_type']], self.unparse_val(cond['val1'])]
+        tokens += [self.COND_TYPES_B[cond['_type']], self.unparse_dual_val(cond['dual_val1'])]
         return ' '.join(tokens)
 
     def unparse_nested_cond(self, nested_conds):
@@ -820,7 +824,9 @@ class SquallUnparser:
                 tokens.append(f'({self.unparse_sql(table_unit["s"])})')
             elif table_unit['_type'] == 'Table':
                 table_id = table_unit['table_id']
-                tokens += [self.schema.tables[table_id].orig_name]
+                # squall
+                # tokens += [self.schema.tables[table_id].orig_name]
+                tokens += ['w']
                 output_table_ids.add(table_id)
 
                 # Output "ON <cond>" if all tables involved in the condition have been output
@@ -836,12 +842,14 @@ class SquallUnparser:
                     tokens += list(intersperse(
                         'AND',
                         (self.unparse_cond(cond) for cond in conds_to_output)))
+                    
         return ' '.join(tokens)
 
     def unparse_order_by(self, order_by):
         return f'ORDER BY {", ".join(self.unparse_val_unit(v) for v in order_by["val_units"])} {order_by["order"]["_type"]}'
 
     def unparse_sql_query(self, query):
+        query = query['query']
         if query['_type'] == 'Single':
             return self.unparse_val(query['val1'])
         if query['_type'] in ['QNOTNULL', 'QISNULL']:
@@ -856,5 +864,6 @@ class SquallUnparser:
             return f"select ABS ( {res1} - {res2} )"
         if query['_type'] in ['QMIN', 'QMAX']:
             return f"selelct {self.QUERY_OPERATORS_B[query['_type']]} ( {res1} , {res2} )"
+                
         return f"select {res1} {self.QUERY_OPERATORS_B[query['_type']]} {res2}"
 

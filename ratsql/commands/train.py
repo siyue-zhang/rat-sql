@@ -95,8 +95,6 @@ class Trainer:
                 config['model'],
                 unused_keys=('name',))
             self.model_preproc.load()
-            # print('Construct preprocessors ', registry.lookup('model', config['model']))
-            # print('model ', config['model'])
 
             # 1. Construct model
             self.model = registry.construct('model', config['model'],
@@ -171,7 +169,7 @@ class Trainer:
             val_data,
             batch_size=self.train_config.eval_batch_size,
             collate_fn=lambda x: x)
-        print('val dataset ', len(val_data_loader))
+        # print('val dataset ', len(val_data_loader))
         # 4. Start training loop
         with self.data_random:
             for batch in train_data_loader:
@@ -182,8 +180,8 @@ class Trainer:
                 # Evaluate model
                 if last_step % self.train_config.eval_every_n == 0:
                     if self.train_config.eval_on_train:
-                        print('eval_on_train ', self.train_config.eval_on_train)
-                        print('last_step ', last_step)
+                        # print('eval_on_train ', self.train_config.eval_on_train)
+                        # print('last_step ', last_step)
                         self._eval_model(self.logger, self.model, last_step, train_eval_data_loader, 'train',
                                          num_eval_items=self.train_config.num_eval_items)
                     if self.train_config.eval_on_val:
@@ -194,6 +192,7 @@ class Trainer:
                 with self.model_random:
                     for _i in range(self.train_config.num_batch_accumulated):
                         if _i > 0:  batch = next(train_data_loader)
+                        # print('AAA', len(batch), '\n', batch)
                         loss = self.model.compute_loss(batch)
                         norm_loss = loss / self.train_config.num_batch_accumulated
                         norm_loss.backward()

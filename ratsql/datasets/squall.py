@@ -219,7 +219,10 @@ class SquallDataset(torch.utils.data.Dataset):
                         'question': example["question"],
                     },
                     orig_schema=table_spider)
-                
+                setattr(item, 'nt', nt)
+                setattr(item, 'tgt_sql', sql)
+                setattr(item, 'tgt', example["tgt"])
+
                 sqlite_path = f"{db_path}/{tbl}.db"
                 source: sqlite3.Connection
                 with sqlite3.connect(str(sqlite_path)) as source:
@@ -247,6 +250,12 @@ class SquallDataset(torch.utils.data.Dataset):
 
     class Metrics:
         def __init__(self):
+            self.nt = []
+            self.tbl = []
+            self.nl = []
+            self.tgt_sql = []
+            self.infer_sql = []
+            self.tgt = []
             self.lf_match = []
             self.exec_match = []
             self.results = []
@@ -261,27 +270,20 @@ class SquallDataset(torch.utils.data.Dataset):
             # preds and labels for all eval samples
             # prepare the prediction format for the wtq evaluator
             post_predictions = []
-            table_id = item['db_id']
-            nt_id = item['nt']
-            header = item['header']
-            # repalce the natural language header with c1, c2, ... headers
-            for j, h in enumerate(header):
-                inferred_code = inferred_code.replace(h, 'c'+str(j+1))
-            result_dict = {"sql": inferred_code, "id": nt_id, "tgt": item['query']}
-            res = {"table_id": table_id, "result": [result_dict]}
+            result_dict = {"sql": inferred_code, "id": item.nt, "tgt": item.tgt_sql}
+            res = {"table_id": item.orig_schema["db_id"], "result": [result_dict]}
             post_predictions.append(res)
                 
             return post_predictions
 
         def _evaluate_one(self, item, inferred_code):
-
-            inferred_code = self._postprocess_one(inferred_code, item)
-            ex_accu, correct_flag = self.evaluator.evaluate(inferred_code, with_correct_flag=True)
-            
-            assert len(correct_flag)==1
+            post_predictions = self._postprocess_one(inferred_code, item)
+            ex_accu, correct_flag = self.evaluator.evaluate(post_predictions, with_correct_flag=True)
             lf_accu = 0
-            for d in inferred_code:
-                if d['result'][0]['sql'] == d['result'][0]['tgt']:
+            for d in post_predictions:
+                print('inferred code: ', d['result'][0]['sql'].lower().strip())
+                print('target code: ', d['result'][0]['tgt'])
+                if d['result'][0]['sql'].lower().strip() == d['result'][0]['tgt']:
                     lf_accu += 1
 
             lf_match = lf_accu == 1
@@ -290,11 +292,16 @@ class SquallDataset(torch.utils.data.Dataset):
             return lf_match, exec_match
 
         def add(self, item, inferred_code):
-            print("CHECK ITEM")
-            print(item)
+
             lf_match, exec_match = self._evaluate_one(item, inferred_code)
             self.lf_match.append(lf_match)
             self.exec_match.append(exec_match)
+            self.nt.append(item.nt)
+            self.tbl.append(item.orig_schema["db_id"])
+            self.nl.append(item.text)
+            self.tgt_sql.append(item.tgt_sql)
+            self.infer_sql.append(inferred_code)
+            self.tgt.append(item.tgt)
 
         def add_beams(self, item, inferred_codes, orig_question=None):
             beam_dict = {}
@@ -312,8 +319,26 @@ class SquallDataset(torch.utils.data.Dataset):
             mean_lf_match = float(np.mean(self.lf_match))
 
             return {
-                'per_item': [{'ex': ex, 'lf': lf} for ex, lf in zip(self.exec_match, self.lf_match)],
-                'total_scores': {'ex': mean_exec_match, 'lf': mean_lf_match},
+                'per_item': [
+                    {'nt': nt, 
+                     'tbl': tbl, 
+                     'nl': nl, 
+                     'sql': tgt_sql,
+                     'prediction': infer_sql,
+                     'tgt': tgt,
+                     'execution_accuracy': ex, 
+                     'lf': lf} 
+                    for nt, tbl, nl, tgt_sql, infer_sql, tgt, ex, lf in zip(
+                        self.nt,
+                        self.tbl,
+                        self.nl,
+                        self.tgt_sql,
+                        self.infer_sql,
+                        self.tgt,
+                        self.exec_match, 
+                        self.lf_match)
+                    ],
+                'total_scores': {'execution_accuracy': mean_exec_match, 'lf': mean_lf_match},
             }
 
 

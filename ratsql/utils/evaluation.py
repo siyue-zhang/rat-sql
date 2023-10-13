@@ -20,8 +20,7 @@ def compute_metrics(config_path, config_args, section, inferred_path, logdir=Non
 
     inferred = open(inferred_path)
     data = registry.construct('dataset', config['data'][section])
-    metrics = data.Metrics(data)
-    print('loading metrics in eval ', metrics)
+    metrics = data.Metrics()
 
     inferred_lines = list(inferred)
     if len(inferred_lines) < len(data):

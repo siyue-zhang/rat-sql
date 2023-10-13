@@ -242,7 +242,7 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
     def save(self):
         os.makedirs(self.data_dir, exist_ok=True)
         self.vocab = self.vocab_builder.finish()
-        print(f"{len(self.vocab)} words in vocab")
+        # print(f"{len(self.vocab)} words in vocab")
         self.vocab.save(self.vocab_path)
         self.vocab_builder.save(self.vocab_word_freq_path)
 

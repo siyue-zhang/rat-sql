@@ -67,7 +67,7 @@ function(output_from, data_path='data/squall/') {
                 name: 'squall',
                 output_from: output_from,
                 use_table_pointer: output_from,
-                include_literals: false,
+                include_literals: true,
             },
             use_seq_elem_rules: true,
 
