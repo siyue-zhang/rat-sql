@@ -8,7 +8,7 @@
         bert_version: "bert-large-uncased-whole-word-masking",
         summarize_header: "avg",
         use_column_type: false,
-        max_steps: 1000,
+        max_steps: 40000,
         num_layers: 8,
         lr: 7.44e-4,
         bert_lr: 3e-6,
@@ -28,6 +28,6 @@
     eval_output: "__LOGDIR__/ie_dirs",
     eval_beam_size: 1,
     eval_use_heuristic: true,
-    eval_steps: [1000],
+    eval_steps: [20000],
     eval_section: "val",
 }

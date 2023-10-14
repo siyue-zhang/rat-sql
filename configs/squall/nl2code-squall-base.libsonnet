@@ -82,8 +82,8 @@ function(output_from, data_path='data/squall/') {
         eval_batch_size: 50,
 
         keep_every_n: 1000,
-        eval_every_n: 100,
-        save_every_n: 100,
+        eval_every_n: 500,
+        save_every_n: 4000,
         report_every_n: 10,
 
         max_steps: 40000,

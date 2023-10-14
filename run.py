@@ -2,6 +2,7 @@
 
 import sys, os
 sys.path.append("./third_party/wikisql/")
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 
 import argparse
 import json

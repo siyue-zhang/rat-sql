@@ -353,7 +353,7 @@ class TreeTraversal:
                 return last_choice, True
             else:
                 return None, False
-
+        # print('current item type: ', self.cur_item.node_type)
         self.recurrent_state, output, gen_logodds = self.model.gen_token(
             self.cur_item.node_type,
             self.recurrent_state,
@@ -362,10 +362,12 @@ class TreeTraversal:
             self.cur_item.parent_action_emb,
             self.desc_enc,
         )
+        # print('gen token: ', output)
         self.update_prev_action_emb = (
             TreeTraversal._update_prev_action_emb_gen_token
         )
         choices = self.token_choice(output, gen_logodds)
+        # print('choices: ', choices)
         return choices, False
 
     @Handler.register_handler(State.POINTER_INQUIRE)

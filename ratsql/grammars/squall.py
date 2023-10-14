@@ -576,6 +576,10 @@ class SquallUnparser:
             return self.unparse_val(dual_val['val1'])
         val1 = self.unparse_val(dual_val['val1'])
         val2 = self.unparse_val(dual_val['val2'])
+        if 'select' in val1:
+            val1 = f'( {val1} )'
+        if 'select' in val2:
+            val1 = f'( {val2} )'
         return f'{val1} {self.DUAL_VAL_OPERATORS_B[dual_val["_type"]]} {val2}'
 
 
@@ -607,7 +611,17 @@ class SquallUnparser:
         tokens = [self.unparse_val_unit(cond['val_unit'])]
         if negated:
             tokens.append('NOT')
-        tokens += [self.COND_TYPES_B[cond['_type']], self.unparse_dual_val(cond['dual_val1'])]
+        if 'vals' in cond and cond['_type']=='In':
+            tokens += ['IN', '(']
+            n_vals = len(cond["vals"])
+            for i,val in enumerate(cond["vals"]):
+                v = self.unparse_val(val)
+                tokens.append(v)
+                if i!=n_vals-1:
+                    tokens += ','
+            tokens += ')'
+        else:
+            tokens += [self.COND_TYPES_B[cond['_type']], self.unparse_dual_val(cond['dual_val1'])]
         return ' '.join(tokens)
 
     def unparse_nested_cond(self, nested_conds):

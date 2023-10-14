@@ -105,7 +105,7 @@ class SquallDataset(torch.utils.data.Dataset):
         count = 0
         self.save = {}
         for jj, example in enumerate(self.raw_examples):
-            if example['nt'] in ['nt-6989', 'nt-4316']:
+            if example['nt'] in ['nt-6989', 'nt-4316', 'nt-10651']:
                 # skip these questions which have only 1 case but case complex structure change
                 
                 # nt-6989
@@ -113,6 +113,9 @@ class SquallDataset(torch.utils.data.Dataset):
                 
                 # nt-4316
                 # select c4 from w group by c4 order by count ( c5_number1 > c5_number2 ) desc limit 1
+                
+                # nt-10651
+                # select c1 from w order by c4_number + c5_number + c6_number limit 1
                 continue
             count += 1
             if example['nt'] != 'n':
