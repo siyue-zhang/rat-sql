@@ -86,7 +86,7 @@ function(output_from, data_path='data/squall/') {
         save_every_n: 4000,
         report_every_n: 10,
 
-        max_steps: 40000,
+        max_steps: 20000,
         num_eval_items: 50,
     },
     optimizer: {

@@ -9,7 +9,7 @@
 		"dockerfile": "../Dockerfile"
 	},
 	"containerEnv": {
-		"NVIDIA_VISIBLE_DEVICES": "0,1,2,3"
+		"NVIDIA_VISIBLE_DEVICES": "0,1"
 	},
 	"runArgs": [
 		"--runtime=nvidia"
@@ -22,7 +22,7 @@
 	// "features": {},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [6007, 5678],
+	// "forwardPorts": [6007, 5678],
 	"customizations": {
 		// Configure properties specific to VS Code.
 		"vscode": {
@@ -34,10 +34,9 @@
 		}
 	},
 	"mounts": [
-		"source=/home/ali-siyue/Projects/test/tableQA_text_to_SQL/data,target=/workspaces/rat-sql/data,type=bind,consistency=cached",
-		"source=/home/ali-siyue/Projects/test/tableQA_text_to_SQL/third_party,target=/workspaces/rat-sql/third_party,type=bind,consistency=cached"
+		"source=/home/siyue/Projects/tableQA_text_to_SQL/data,target=/workspaces/rat-sql/data,type=bind,consistency=cached",
+		"source=/home/siyue/Projects/tableQA_text_to_SQL/third_party,target=/workspaces/rat-sql/third_party,type=bind,consistency=cached"
 	]
-
 	// Uncomment the next line to run commands after the container is created.
 	// "postCreateCommand": "python run.py ./configs/squall"
 
