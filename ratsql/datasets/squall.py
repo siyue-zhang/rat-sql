@@ -119,7 +119,7 @@ class SquallDataset(torch.utils.data.Dataset):
                 continue
             count += 1
             if example['nt'] != 'n':
-            # if example['nt'] == 'nt-7639':
+            # if example['nt'] == 'nt-4293':
                 # replace the empty column name
                 example["columns"] = ['unknown' if item == '' else item for item in example["columns"]]
                 # only 1 table in squall

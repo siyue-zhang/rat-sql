@@ -21,7 +21,7 @@ def filter_nones(d):
     return {k: v for k, v in d.items() if v is not None and v != []}
 
 
-# @registry.register('grammar', 'wikisql')
+@registry.register('grammar', 'wikisql')
 class WikiSqlLanguage:
 
     root_type = 'select'

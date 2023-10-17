@@ -10,6 +10,7 @@ import networkx as nx
 
 from ratsql import ast_util
 from ratsql.utils import registry
+from ratsql.resources import corenlp
 
 
 def bimap(first, second):
@@ -141,12 +142,26 @@ class SquallLanguage:
             field_value_str = field_value.encode('latin1')
         elif isinstance(field_value, str):
             field_value_str = field_value
+            # new
+            if field_value_str[0] == "'" and field_value_str[-1] == "'":
+                field_value_str = field_value_str[1:-1]
+            if field_value_str[0] == '"' and field_value_str[-1] == '"':
+                field_value_str = field_value_str[1:-1]
         else:
             field_value_str = str(field_value)
             if field_value_str[0] == '"' and field_value_str[-1] == '"':
                 field_value_str = field_value_str[1:-1]
-        # TODO: Get rid of surrounding quotes
-        return [field_value_str]
+
+        # from wikisql
+        ann = corenlp.annotate(field_value_str, annotators=['tokenize'])
+        result = []
+        for token in ann.sentencelessToken:
+            # .before is the string between this token and the previous one (typically whitespace)
+            result += list(token.before)
+            # .originalText so that (e.g.) \u2014 doesn't get turned into --
+            # .lower() because references in question don't match?
+            result.append(token.originalText.lower())
+        return result
 
     def parse_val(self, val):
         if isinstance(val, str):
@@ -882,7 +897,7 @@ class SquallUnparser:
             res1 = f'( {res1} )'
         if res2[:6].lower() == 'select':
             res2 = f'( {res2} )'
-        if query['_type'] == 'ABS':
+        if query['_type'] == 'QABS':
             return f"SELECT ABS ( {res1} - {res2} )"
         if query['_type'] in ['QMIN', 'QMAX']:
             return f"SELECT {self.QUERY_OPERATORS_B[query['_type']]} ( {res1} , {res2} )"

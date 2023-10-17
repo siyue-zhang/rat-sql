@@ -108,6 +108,10 @@ class TreeTraversal:
             handler = getattr(self, handler_name)
             # print('last choice ', last_choice)
             choices, continued = handler(last_choice)
+            # print('new choices ', choices)
+            # print('continue: ', continued)
+            # if handler_name == 'process_gen_token':
+            #     assert 1==2
             if continued:
                 last_choice = choices
                 continue
@@ -128,8 +132,12 @@ class TreeTraversal:
 
     @classmethod
     def _update_prev_action_emb_gen_token(cls, self, last_choice, extra_choice_info):
+        # print('last choice: ', last_choice)
+        # print('extra choice info: ', extra_choice_info)
+        # print('terminal voc: ', self.model.terminal_vocab)
         # token_idx shape: batch (=1), LongTensor
         token_idx = self.model._index(self.model.terminal_vocab, last_choice)
+        # print('update: ', token_idx)
         # action_emb shape: batch (=1) x emb_size
         self.prev_action_emb = self.model.terminal_embedding(token_idx)
 
@@ -139,6 +147,7 @@ class TreeTraversal:
         self.prev_action_emb = self.model.pointer_action_emb_proj[
             self.cur_item.node_type
         ](self.desc_enc.pointer_memories[self.cur_item.node_type][:, last_choice])
+        # print('_update_prev_action_emb_pointer', self.desc_enc.pointer_memories[self.cur_item.node_type][:, last_choice])
 
     def pop(self):
         if self.queue:

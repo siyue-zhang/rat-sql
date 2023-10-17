@@ -107,10 +107,11 @@ def main():
             real_logdir = eval.main(eval_config)
 
             res_json = json.load(open(eval_output_path.replace('__LOGDIR__', real_logdir)))
-            print('------------eval-----------------')
-            print('model: ', step, 'steps')
-            print('execution acc: ', res_json['total_scores']['execution_accuracy'])
-            print('logical form acc: ', res_json['total_scores']['lf'])
+            if 'squall' in real_logdir:
+                print('------------eval-----------------')
+                print('model: ', step, 'steps')
+                print('execution acc: ', res_json['total_scores']['execution_accuracy'])
+                print('logical form acc: ', res_json['total_scores']['lf'])
 
 
 if __name__ == "__main__":

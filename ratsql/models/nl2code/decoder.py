@@ -565,7 +565,7 @@ class NL2CodeDecoder(torch.nn.Module):
 
     def compute_mle_loss(self, enc_input, example, desc_enc, debug=False):
         traversal = TrainTreeTraversal(self, desc_enc, debug)
-        # print('example.tree ', example.tree, 'desc_enc ', desc_enc)
+        # print('example.tree ', example.tree)
         traversal.step(None)
         queue = [
             TreeState(
@@ -620,7 +620,8 @@ class NL2CodeDecoder(torch.nn.Module):
                 else:
                     traversal.step(node)
                 continue
-
+            # print('parent_field_type: ', parent_field_type)
+            # print('primitive_types: ', self.ast_wrapper.primitive_types)
             if parent_field_type in self.ast_wrapper.primitive_types:
                 # identifier, int, string, bytes, object, singleton
                 # - could be bytes, str, int, float, bool, NoneType
@@ -629,7 +630,7 @@ class NL2CodeDecoder(torch.nn.Module):
                 field_type = type(node).__name__
                 field_value_split = self.preproc.grammar.tokenize_field_value(node) + [
                     vocab.EOS]
-
+                print('field_value_split: ', field_value_split)
                 for token in field_value_split:
                     assert traversal.cur_item.state == TreeTraversal.State.GEN_TOKEN
                     traversal.step(token)
@@ -778,6 +779,11 @@ class NL2CodeDecoder(torch.nn.Module):
             desc_enc):
         # token_idx shape: batch (=1), LongTensor
         token_idx = self._index(self.terminal_vocab, token)
+        print('\ngen_token_loss')
+        # print('output: ', output)
+        # print('token: ', token, token_idx)
+        print('gen logodds: ', gen_logodds)
+        # print('desc: ', desc_enc)
         # action_emb shape: batch (=1) x emb_size
         action_emb = self.terminal_embedding(token_idx)
 
@@ -787,6 +793,7 @@ class NL2CodeDecoder(torch.nn.Module):
         # -unk, -in desc: gen
         # gen_logodds shape: batch (=1)
         desc_locs = desc_enc.find_word_occurrences(token)
+        # print('gen token: ', token, 'desc locs: ', desc_locs)
         if desc_locs:
             # copy: if the token appears in the description at least once
             # copy_loc_logits shape: batch (=1) x desc length
@@ -820,6 +827,7 @@ class NL2CodeDecoder(torch.nn.Module):
         loss_piece = -torch.logsumexp(
             maybe_stack([copy_logprob, gen_logprob], dim=1),
             dim=1)
+        # print('copy logprob: ', copy_logprob)
         return loss_piece
 
     def token_infer(self, output, gen_logodds, desc_enc):

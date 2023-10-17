@@ -48,7 +48,7 @@ def main(args):
         config = json.loads(_jsonnet.evaluate_file(args.config, tla_codes={'args': args.config_args}))
     else:
         config = json.loads(_jsonnet.evaluate_file(args.config))
-
+    
     preprocessor = Preprocessor(config)
     preprocessor.preprocess()
 

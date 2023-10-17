@@ -458,6 +458,8 @@ class Evaluator:
     def evaluate_one(self, db_name, gold, predicted):
         schema = self.schemas[db_name]
         g_sql = get_sql(schema, gold)
+        # print('--------------------------')
+        # print('g_sql: ', g_sql)
         hardness = self.eval_hardness(g_sql)
         self.scores[hardness]['count'] += 1
         self.scores['all']['count'] += 1
@@ -495,8 +497,11 @@ class Evaluator:
         g_sql = rebuild_sql_val(g_sql)
         g_sql = rebuild_sql_col(g_valid_col_units, g_sql, kmap)
         p_valid_col_units = build_valid_col_units(p_sql['from']['table_units'], schema)
+        # print('\nbefore rebuild_sql_val : ', p_sql)
         p_sql = rebuild_sql_val(p_sql)
+        # print('\nafter rebuild_sql_val : ', p_sql)
         p_sql = rebuild_sql_col(p_valid_col_units, p_sql, kmap)
+        # print('\nafter rebuild_sql_col : ', p_sql)
 
         if self.etype in ["all", "exec"]:
             self.scores[hardness]['exec'] += eval_exec_match(self.db_paths[db_name], predicted, gold, p_sql, g_sql)
@@ -605,6 +610,7 @@ def print_scores(scores, etype):
 
 
 def evaluate(gold, predict, db_dir, etype, kmaps):
+
     with open(gold) as f:
         glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
 
@@ -628,6 +634,8 @@ def evaluate(gold, predict, db_dir, etype, kmaps):
 
 
 def eval_exec_match(db, p_str, g_str, pred, gold):
+    # print('p_str ', p_str)
+    # print('g_str ', g_str)
     """
     return 1 if the values between prediction and gold are matching
     in the corresponding index. Currently not support multiple col_unit(pairs).
