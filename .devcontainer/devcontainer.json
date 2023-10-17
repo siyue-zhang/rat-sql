@@ -9,7 +9,7 @@
 		"dockerfile": "../Dockerfile"
 	},
 	"containerEnv": {
-		"NVIDIA_VISIBLE_DEVICES": "0,1"
+		"NVIDIA_VISIBLE_DEVICES": "2,3"
 	},
 	"runArgs": [
 		"--runtime=nvidia"

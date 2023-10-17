@@ -2,6 +2,7 @@ import collections
 import copy
 import itertools
 import os
+import re
 
 import asdl
 import attr
@@ -122,8 +123,15 @@ class SquallLanguage:
     def unparse(self, tree, item):
         unparser = SquallUnparser(self.ast_wrapper, item.schema, self.factorize_sketch)
         code = unparser.unparse_sql_query(tree)
-        # print('Item: ', item)
-        print('Tree: ', tree)
+        # remove decimal for integers
+        pattern = r'\d+\.\d+'
+        match = re.search(pattern, code)
+        if match:
+            decimal_number = match.group()
+            integer_number = int(decimal_number.split('.')[0])
+            code = re.sub(pattern, str(integer_number), code)
+        # print('Tree: ', tree)
+        print('\n',item.nt)
         print('Inferred code: ', code)
         return code
 
@@ -576,9 +584,9 @@ class SquallUnparser:
             return self.unparse_val(dual_val['val1'])
         val1 = self.unparse_val(dual_val['val1'])
         val2 = self.unparse_val(dual_val['val2'])
-        if 'select' in val1:
+        if 'select' in val1.lower():
             val1 = f'( {val1} )'
-        if 'select' in val2:
+        if 'select' in val2.lower():
             val1 = f'( {val2} )'
         return f'{val1} {self.DUAL_VAL_OPERATORS_B[dual_val["_type"]]} {val2}'
 
@@ -867,17 +875,17 @@ class SquallUnparser:
         if query['_type'] == 'Single':
             return self.unparse_val(query['val1'])
         if query['_type'] in ['QNOTNULL', 'QISNULL']:
-            return f"select ( {self.unparse_val(query['val1'])} ) {self.QUERY_OPERATORS_B[query['_type']]}"
+            return f"SELECT ( {self.unparse_val(query['val1'])} ) {self.QUERY_OPERATORS_B[query['_type']]}"
         res1 = self.unparse_val(query['val1'])
         res2 = self.unparse_val(query['val2'])
-        if res1[:6] == 'select':
+        if res1[:6].lower() == 'select':
             res1 = f'( {res1} )'
-        if res2[:6] == 'select':
+        if res2[:6].lower() == 'select':
             res2 = f'( {res2} )'
         if query['_type'] == 'ABS':
-            return f"select ABS ( {res1} - {res2} )"
+            return f"SELECT ABS ( {res1} - {res2} )"
         if query['_type'] in ['QMIN', 'QMAX']:
-            return f"selelct {self.QUERY_OPERATORS_B[query['_type']]} ( {res1} , {res2} )"
+            return f"SELECT {self.QUERY_OPERATORS_B[query['_type']]} ( {res1} , {res2} )"
                 
-        return f"select {res1} {self.QUERY_OPERATORS_B[query['_type']]} {res2}"
+        return f"SELECT {res1} {self.QUERY_OPERATORS_B[query['_type']]} {res2}"
 

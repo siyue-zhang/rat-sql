@@ -1,1 +1,1 @@
-python run.py train ./experiments/squall-bert-run.jsonnet
+python run.py eval ./experiments/squall-bert-run.jsonnet
