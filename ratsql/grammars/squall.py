@@ -159,8 +159,8 @@ class SquallLanguage:
             # .before is the string between this token and the previous one (typically whitespace)
             result += list(token.before)
             # .originalText so that (e.g.) \u2014 doesn't get turned into --
-            # .lower() because references in question don't match?
-            result.append(token.originalText.lower())
+            # .lower() because references in question don't match? removed for squall
+            result.append(token.originalText)
         return result
 
     def parse_val(self, val):
@@ -173,6 +173,8 @@ class SquallLanguage:
             elif not self.include_literals:
                 return {'_type': 'Terminal'}
             else:
+                if val[0]=="'"  and val[-1]=="'":
+                    val = val[1:-1]
                 return {
                     '_type': 'String',
                     's': val,
@@ -553,7 +555,12 @@ class SquallUnparser:
         if val['_type'] == 'Terminal':
             return "'terminal'"
         if val['_type'] == 'String':
-            return val['s']
+            s = val['s']
+            if s[0]=="'" and s[-1]=="'":
+                pass
+            else:
+                s = "'" + s + "'"
+            return s
         if val['_type'] == 'ColUnit':
             return self.unparse_col_unit(val['c'])
         if val['_type'] == 'Number':

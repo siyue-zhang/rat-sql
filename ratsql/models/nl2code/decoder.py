@@ -630,7 +630,7 @@ class NL2CodeDecoder(torch.nn.Module):
                 field_type = type(node).__name__
                 field_value_split = self.preproc.grammar.tokenize_field_value(node) + [
                     vocab.EOS]
-                print('field_value_split: ', field_value_split)
+                # print('field_value_split: ', field_value_split)
                 for token in field_value_split:
                     assert traversal.cur_item.state == TreeTraversal.State.GEN_TOKEN
                     traversal.step(token)
@@ -779,10 +779,10 @@ class NL2CodeDecoder(torch.nn.Module):
             desc_enc):
         # token_idx shape: batch (=1), LongTensor
         token_idx = self._index(self.terminal_vocab, token)
-        print('\ngen_token_loss')
+        # print('\ngen_token_loss')
         # print('output: ', output)
         # print('token: ', token, token_idx)
-        print('gen logodds: ', gen_logodds)
+        # print('gen logodds: ', gen_logodds)
         # print('desc: ', desc_enc)
         # action_emb shape: batch (=1) x emb_size
         action_emb = self.terminal_embedding(token_idx)

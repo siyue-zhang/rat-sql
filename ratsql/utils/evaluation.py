@@ -37,6 +37,7 @@ def compute_metrics(config_path, config_args, section, inferred_path, logdir=Non
         else:
             inferred_code = None
         if 'index' in infer_results:
+            # print('index ', infer_results['index'], inferred_code)
             metrics.add(data[infer_results['index']], inferred_code)
         else:
             metrics.add(None, inferred_code, obsolete_gold_code=infer_results['gold_code'])

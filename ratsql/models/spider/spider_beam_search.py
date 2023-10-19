@@ -30,10 +30,10 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
         for step in range(max_steps):
             if len(prefixes2fill_from) >= beam_size:
                 break
-
+            print('\nstep: ', step)
+            # print('bb: ', beam_prefix)
             candidates = []
             for hyp in beam_prefix:
-                # print(hyp.inference_state.cur_item.state, hyp.inference_state.cur_item.node_type )
                 if hyp.inference_state.cur_item.state == TreeTraversal.State.CHILDREN_APPLY \
                         and hyp.inference_state.cur_item.node_type == "from":
                     prefixes2fill_from.append(hyp)
@@ -42,13 +42,13 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
                                     hyp.score + choice_score.item())
                                    for choice, choice_score in hyp.next_choices]
             candidates.sort(key=operator.itemgetter(3), reverse=True)
+            print('candidates ', len(candidates))
             candidates = candidates[:beam_size - len(prefixes2fill_from)]
 
             # Create the new hypotheses from the expansions
             beam_prefix = []
             for hyp, choice, choice_score, cum_score in candidates:
                 inference_state = hyp.inference_state.clone()
-
                 # cache column choice
                 column_history = hyp.column_history[:]
                 if hyp.inference_state.cur_item.state == TreeTraversal.State.POINTER_APPLY and \
@@ -63,18 +63,25 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
                                          hyp.score_history + [choice_score],
                                          column_history))
 
+            # print('mmmm')
+
+        # print('beam_prefix ', beam_prefix)
+
         prefixes2fill_from.sort(key=operator.attrgetter('score'), reverse=True)
         # assert len(prefixes) == beam_size
 
         # emuerating 
         beam_from = prefixes2fill_from
+        # print('beam_from ', beam_from)
         max_size = 6
         unfiltered_finished = []
         prefixes_unfinished = []
+        # how come reach max_steps
         for step in range(max_steps):
+            # print('step ', step, '/', max_steps)
             if len(unfiltered_finished) + len(prefixes_unfinished) > max_size:
                 break
-
+            
             candidates = []
             for hyp in beam_from:
                 if step > 0 and hyp.inference_state.cur_item.state == TreeTraversal.State.CHILDREN_APPLY \
@@ -86,9 +93,10 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
                                    for choice, choice_score in hyp.next_choices]
             candidates.sort(key=operator.itemgetter(3), reverse=True)
             candidates = candidates[:max_size - len(prefixes_unfinished)]
-
+            # print('candiates', len(candidates))
             beam_from = []
             for hyp, choice, choice_score, cum_score in candidates:
+
                 inference_state = hyp.inference_state.clone()
 
                 # cache table choice
@@ -101,7 +109,10 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
                         key_column_history = key_column_history + [choice]
 
                 next_choices = inference_state.step(choice)
+                # print('\nONE CANDIDATE')
+                # print('choice: ', choice)
                 if next_choices is None:
+                    # print('APPEND')
                     unfiltered_finished.append(Hypothesis4Filtering(
                         inference_state,
                         None,
@@ -111,15 +122,18 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
                         hyp.column_history, table_history,
                         key_column_history))
                 else:
+                    # print('beam from APPEND')
                     beam_from.append(
                         Hypothesis4Filtering(inference_state, next_choices, cum_score,
                                              hyp.choice_history + [choice],
                                              hyp.score_history + [choice_score],
                                              hyp.column_history, table_history,
                                              key_column_history))
-
+                    
         unfiltered_finished.sort(key=operator.attrgetter('score'), reverse=True)
 
+        # print('\nunfiltered_finished', len(unfiltered_finished))
+        # print('beam from len ', len(beam_from))
         # filtering
         filtered_finished = []
         for hyp in unfiltered_finished:
@@ -175,6 +189,8 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
         prefixes_unfinished.sort(key=operator.attrgetter('score'), reverse=True)
         # new_prefixes.sort(key=lambda x: x.score / len(x.choice_history), reverse=True)
 
+        # print('\nCHECK ', prefixes_unfinished)
+        # print('CAA', filtered_finished)
         prefixes_, filtered_ = merge_beams(prefixes_unfinished, filtered_finished, beam_size)
 
         if filtered_:

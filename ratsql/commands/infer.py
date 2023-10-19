@@ -83,13 +83,19 @@ class Inferer:
         for i, (orig_item, preproc_item) in enumerate(
                 tqdm.tqdm(zip(sliced_orig_data, sliced_preproc_data),
                           total=len(sliced_orig_data))):
+            # print(i)
+            # if 'which game is credited' in orig_item.text: #or 'how many interception return' in orig_item.text:
             decoded = self._infer_one(model, orig_item, preproc_item, beam_size, output_history, use_heuristic)
+            # print('decoded ', decoded
             output.write(
                 json.dumps({
                     'index': i,
                     'beams': decoded,
                 }) + '\n')
             output.flush()
+
+                # if 'which game is credited' in orig_item.text:
+                #     assert 1==2
 
     def _infer_one(self, model, data_item, preproc_item, beam_size, output_history=False, use_heuristic=True):
         if use_heuristic:

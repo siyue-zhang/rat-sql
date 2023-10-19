@@ -280,22 +280,25 @@ class SquallDataset(torch.utils.data.Dataset):
             return post_predictions
 
         def _evaluate_one(self, item, inferred_code):
-            post_predictions = self._postprocess_one(inferred_code, item)
-            ex_accu, correct_flag = self.evaluator.evaluate(post_predictions, with_correct_flag=True)
-            lf_accu = 0
-            for d in post_predictions:
-                print('inferred code: ', d['result'][0]['sql'].lower().strip())
-                print('target code: ', d['result'][0]['tgt'])
-                if d['result'][0]['sql'].lower().strip() == d['result'][0]['tgt']:
-                    lf_accu += 1
+            if inferred_code:
+                post_predictions = self._postprocess_one(inferred_code, item)
+                ex_accu, correct_flag = self.evaluator.evaluate(post_predictions, with_correct_flag=True)
+                lf_accu = 0
+                for d in post_predictions:
+                    print('inferred code: ', d['result'][0]['sql'].lower().strip())
+                    print('target code: ', d['result'][0]['tgt'])
+                    if d['result'][0]['sql'].lower().strip() == d['result'][0]['tgt']:
+                        lf_accu += 1
 
-            lf_match = lf_accu == 1
-            exec_match = ex_accu == 1
+                lf_match = lf_accu == 1
+                exec_match = ex_accu == 1
+            else:
+                lf_match = False
+                exec_match = False
 
             return lf_match, exec_match
 
         def add(self, item, inferred_code):
-
             lf_match, exec_match = self._evaluate_one(item, inferred_code)
             self.lf_match.append(lf_match)
             self.exec_match.append(exec_match)
