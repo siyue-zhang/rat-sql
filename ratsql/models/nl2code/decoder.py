@@ -328,7 +328,6 @@ class NL2CodeDecoder(torch.nn.Module):
         self.preproc = preproc
         self.ast_wrapper = preproc.ast_wrapper
         self.terminal_vocab = preproc.vocab
-
         self.rule_emb_size = rule_emb_size
         self.node_emb_size = node_embed_size
         self.enc_recurrent_size = enc_recurrent_size
@@ -761,9 +760,11 @@ class NL2CodeDecoder(torch.nn.Module):
             parent_h,
             parent_action_emb,
             desc_enc):
+
         new_state, attention_logits = self._update_state(
             node_type, prev_state, prev_action_emb, parent_h, parent_action_emb, desc_enc)
         # output shape: batch (=1) x emb_size
+
         output = new_state[0]
 
         # gen_logodds shape: batch (=1)
@@ -827,7 +828,7 @@ class NL2CodeDecoder(torch.nn.Module):
         loss_piece = -torch.logsumexp(
             maybe_stack([copy_logprob, gen_logprob], dim=1),
             dim=1)
-        # print('copy logprob: ', copy_logprob)
+
         return loss_piece
 
     def token_infer(self, output, gen_logodds, desc_enc):
@@ -865,7 +866,13 @@ class NL2CodeDecoder(torch.nn.Module):
             log_prob_by_word,
             ((self.terminal_vocab[idx], token_logprobs[0, idx]) for idx in range(token_logprobs.shape[1])))
 
-        return list(log_prob_by_word.items())
+        result = list(log_prob_by_word.items())
+        # remove <UNK> token in inference
+        result = [ (token, tensor) for token, tensor in result if token not in ['<UNK>', '<BOS>']]
+        # print('log_prob_by_word', result)
+        # assert 1==2
+        return result
+        # return list(log_prob_by_word.items())
 
     def compute_pointer(
             self,

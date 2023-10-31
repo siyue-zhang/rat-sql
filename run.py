@@ -2,7 +2,7 @@
 
 import sys, os
 sys.path.append("./third_party/wikisql/")
-
+os.environ["CUDA_VISIBLE_DEVICES"]='0'
 import argparse
 import json
 

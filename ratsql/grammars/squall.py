@@ -556,7 +556,7 @@ class SquallUnparser:
             return "'terminal'"
         if val['_type'] == 'String':
             s = val['s']
-            if s[0]=="'" and s[-1]=="'":
+            if len(s)>0 and s[0]=="'" and s[-1]=="'":
                 pass
             else:
                 s = "'" + s + "'"
@@ -566,7 +566,8 @@ class SquallUnparser:
         if val['_type'] == 'Number':
             return str(val['f'])
         if val['_type'] == 'ValSql':
-            return f'{self.unparse_sql(val["s"])}'
+            s = f'{self.unparse_sql(val["s"])}'
+            return s
         if val['_type'] == 'Present_ref':
             return "'present_ref'"
 
@@ -595,6 +596,8 @@ class SquallUnparser:
             return self.unparse_col_unit(val_unit['col_unit1'])
         col1 = self.unparse_col_unit(val_unit['col_unit1'])
         val1 = self.unparse_val(val_unit['val1'])
+        if 'select' in val1.lower():
+            val1 = f'( {val1} )'
         if val_unit['_type'] in ['AbsMinus', 'SumMinus']:
             result = f'{self.UNIT_TYPES_B[val_unit["_type"]]} ( {col1} - {val1} )'
         else:
@@ -602,14 +605,15 @@ class SquallUnparser:
         return result
 
     def unparse_dual_val(self, dual_val):
-        if dual_val['_type'] == 'DValue':
-            return self.unparse_val(dual_val['val1'])
         val1 = self.unparse_val(dual_val['val1'])
-        val2 = self.unparse_val(dual_val['val2'])
         if 'select' in val1.lower():
             val1 = f'( {val1} )'
+        if dual_val['_type'] == 'DValue':
+            return val1
+
+        val2 = self.unparse_val(dual_val['val2'])
         if 'select' in val2.lower():
-            val1 = f'( {val2} )'
+            val2 = f'( {val2} )'
         return f'{val1} {self.DUAL_VAL_OPERATORS_B[dual_val["_type"]]} {val2}'
 
 

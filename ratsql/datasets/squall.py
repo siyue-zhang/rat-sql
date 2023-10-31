@@ -194,6 +194,7 @@ class SquallDataset(torch.utils.data.Dataset):
                 # if 'length (' in sql:
                 #     print(f'found wired keyword julianday in {sql}')
                 #     continue
+                sql = "select c5_number from"
                 sql_label = get_sql_squall(schema_spider, sql, nt, debug=False)  # Attempt to run get_sql()
                 self.save[nt] = {'sql': sql, 'parsed': sql_label}
                 # assert 1==2
@@ -285,8 +286,8 @@ class SquallDataset(torch.utils.data.Dataset):
                 ex_accu, correct_flag = self.evaluator.evaluate(post_predictions, with_correct_flag=True)
                 lf_accu = 0
                 for d in post_predictions:
-                    print('inferred code: ', d['result'][0]['sql'].lower().strip())
-                    print('target code: ', d['result'][0]['tgt'])
+                    print('\ninferred code: ', d['result'][0]['sql'].lower().strip())
+                    print('  target code: ', d['result'][0]['tgt'])
                     if d['result'][0]['sql'].lower().strip() == d['result'][0]['tgt']:
                         lf_accu += 1
 

@@ -24,7 +24,7 @@ class Sentinel(object):
         return True
 
 
-UNK = '<UNK>'
+UNK = '<UNK>' # removed in squall
 BOS = '<BOS>'
 EOS = '<EOS>'
 

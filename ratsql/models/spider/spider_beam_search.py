@@ -30,7 +30,7 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
         for step in range(max_steps):
             if len(prefixes2fill_from) >= beam_size:
                 break
-            print('\nstep: ', step)
+            # print('\nstep: ', step)
             # print('bb: ', beam_prefix)
             candidates = []
             for hyp in beam_prefix:
@@ -42,7 +42,7 @@ def beam_search_with_heuristics(model, orig_item, preproc_item, beam_size, max_s
                                     hyp.score + choice_score.item())
                                    for choice, choice_score in hyp.next_choices]
             candidates.sort(key=operator.itemgetter(3), reverse=True)
-            print('candidates ', len(candidates))
+            # print('candidates ', len(candidates))
             candidates = candidates[:beam_size - len(prefixes2fill_from)]
 
             # Create the new hypotheses from the expansions
